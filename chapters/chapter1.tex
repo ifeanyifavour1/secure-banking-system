@@ -1,0 +1,87 @@
+\chapter{STRIDE Threat Model for Secure Online Banking Architecture}
+% Running header: short title (TOC still uses full chapter title above)
+\chaptermark{STRIDE Threat Model for Online Banking}
+\label{ch:stride-banking}
+
+This chapter presents a detailed STRIDE threat model for the secure online banking architecture. By decomposing the system into its core components---Frontend, Backend, and Data tiers---we identify potential vulnerabilities and map them to the security controls implemented in the project.
+
+\section{System decomposition and trust boundaries}
+
+The architecture is divided into distinct zones separated by \emph{trust boundaries}, where data transitions between different levels of control.
+
+\subsection*{Public zone}
+Includes Internet users (customers, tellers, admins) accessing the system via HTTPS/TLS~1.3.
+
+\subsection*{DMZ (demilitarized zone)}
+Houses the frontend Python Flask server and the Web Application Firewall (WAF).
+
+\subsection*{Private application zone}
+Contains the backend C\# .NET Core Web API, which handles business logic and transaction processing.
+
+\subsection*{Restricted data zone}
+The most secure tier, containing the Azure SQL Database and audit logs, protected by strict SQL firewalls.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.88\textheight,keepaspectratio]{Blank_diagram.pdf}
+  \caption{Trust boundaries and system decomposition (architecture overview).}
+  \label{fig:architecture-zones}
+\end{figure}
+
+Figure~\ref{fig:architecture-zones} gives an overview of the zoning model and trust boundaries discussed above.
+
+\section{STRIDE threat analysis and mitigations}
+
+Table~\ref{tab:stride} analyzes the banking system's architecture through the STRIDE lens, identifying specific threats and the corresponding controls implemented to mitigate them.
+
+\begin{table}[htbp]
+  \centering
+  \caption{STRIDE mapping: threats and implemented mitigations}
+  \label{tab:stride}
+  \small
+  \setlength{\tabcolsep}{6pt}
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\textwidth}{@{} >{\raggedright\arraybackslash}p{3.1cm} X X @{}}
+    \toprule
+    \textbf{Threat category} &
+      \textbf{Potential project risk} &
+      \textbf{Implemented \& compensating mitigations} \\
+    \midrule
+    Spoofing &
+      Attackers stealing JWT tokens or bypassing MFA to impersonate a user. &
+      JWT and TOTP MFA: JWT authentication and TOTP-based MFA; further mitigated by HttpOnly/Secure cookies and short token expiry. \\
+    Tampering &
+      Unauthorized modification of transaction data or interception of data in transit. &
+      TLS~1.3 and hashing: All communication encrypted via TLS~1.3. User data protected using bcrypt/Argon2 with unique random salts. \\
+    Repudiation &
+      An admin or user performing an action and later denying it. &
+      Audit logging: Separate audit servers with hash-protected integrity checks so logs are tamper-evident. \\
+    Information disclosure &
+      Exposure of sensitive banking data via man-in-the-middle (MITM) attacks. &
+      Azure Key Vault: Centralized management of secrets and encryption keys. HSTS used to prevent TLS downgrade attacks. \\
+    Denial of service &
+      High-volume traffic or DDoS attacks overwhelming the banking API. &
+      WAF and rate limiting: External firewalls provide DDoS mitigation; rate limiters at the edge restrict suspicious traffic spikes. \\
+    Elevation of privilege &
+      A customer attempting to access admin-level transaction controls. &
+      RBAC: Strict role-based access control (customer, teller, admin) enforced by the backend API and monitored via audit logs. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Defense-in-depth summary}
+
+To address the identified threats, the project employs a defense-in-depth strategy:
+
+\begin{description}
+  \item[Network level:]
+    Segregation via internal and external firewalls and a DMZ prevents direct access to the database from the Internet.
+  \item[Application level:]
+    The Web Application Firewall (WAF) protects against common exploits, complemented by robust input validation.
+  \item[Identity level:]
+    RBAC and managed identities ensure that even if one component is compromised, lateral movement is limited by least-privilege policies.
+\end{description}
+
+\section{Security gaps and continuous improvement}
+
+Although the current architecture is robust, the threat model highlights areas for strengthening---for example, implementing HSTS to prevent protocol downgrades and ensuring secure MFA recovery processes for users who lose access to their devices.

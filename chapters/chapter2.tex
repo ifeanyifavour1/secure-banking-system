@@ -1,0 +1,72 @@
+\chapter{Secure Architecture Document}
+\chaptermark{Secure Architecture}
+\label{ch:secure-arch}
+
+This chapter details the defense-in-depth strategy for the secure online banking architecture. It explains how the three-tier Azure infrastructure is partitioned, how data is protected in transit, and how cryptographic secrets are managed throughout their lifecycle.
+
+\section{Network topology and firewall placement}
+
+The banking infrastructure uses a segmented network design to isolate sensitive data from public-facing components. Traffic is strictly filtered at each transition point so that a compromise in one zone does not grant automatic access to another.
+
+\subsection*{Public zone (Internet edge)}
+The entry point for customers, tellers, and admins. Traffic is first filtered by an \emph{external firewall} that provides DDoS mitigation and rate limiting to reduce the risk of service exhaustion.
+
+\subsection*{Demilitarized zone (DMZ)}
+Houses the Web Application Firewall (WAF) and the frontend Python Flask server. The WAF inspects traffic for application-layer attacks.
+
+\subsection*{Private application zone}
+Separated by an \emph{internal firewall}, this zone contains the C\# .NET Core Web API. This layer enforces least privilege: only validated requests from the frontend reach the business logic.
+
+\subsection*{Restricted data zone}
+The most secure layer, containing the Azure SQL Database. Access is restricted by an Azure SQL firewall that allows only the specific IP addresses of the web API.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.88\textheight,keepaspectratio]{Blank_board.pdf}
+  \caption{Network topology and firewall placement (reference diagram).}
+  \label{fig:network-topology-board}
+\end{figure}
+
+Figure~\ref{fig:network-topology-board} summarizes the segmented layout and trust boundaries for the banking infrastructure.
+
+\section{TLS implementation plan}
+
+To protect the confidentiality and integrity of banking data in transit, Transport Layer Security (TLS)~1.3 is enforced across communication channels.
+
+\subsection*{Implementation scope}
+
+\begin{description}
+  \item[User to frontend:]
+    All web traffic is encrypted via HTTPS/TLS~1.3 to protect login credentials and session tokens.
+  \item[Service to service:]
+    Communication between the frontend UI and backend API uses TLS~1.3 to mitigate information disclosure.
+  \item[Database connectivity:]
+    The system uses SQL over TLS for all database queries to reduce the risk of sniffing sensitive financial records.
+\end{description}
+
+\subsection*{Certificate and protocol hardening}
+
+The project treats downgrade attacks on older browsers as a risk. To mitigate this, HTTP Strict Transport Security (HSTS) headers are implemented so browsers connect only via HTTPS.
+
+\section{Key management strategy}
+
+Encryption depends on protecting cryptographic keys. This project centralizes cryptographic operations and secret storage in Azure Key Vault.
+
+\subsection*{Secure storage and separation}
+
+Cryptographic keys and database credentials are stored in Key Vault, separate from application code and the database tier.
+
+\subsection*{Access control and identity}
+
+\begin{itemize}
+  \item The system uses managed identities and role-based access control (RBAC) so that only authorized services (for example the backend API) can retrieve specific secrets.
+  \item Least-privilege access policies are enforced to reduce the risk of broad credential theft.
+\end{itemize}
+
+\subsection*{Secret protection}
+
+Secure password hashing uses bcrypt/Argon2 with cryptographically secure random salts for every user.
+
+\subsection*{Audit integrity}
+
+Access to keys is logged. To prevent a compromised administrator from destroying evidence, audit logs are stored on a separate server with hash-protected integrity checks to detect any alteration.

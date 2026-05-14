@@ -1,0 +1,107 @@
+% Introduction to Cybersecurity — compiled report (chapters 1--4)
+% Compile with: pdflatex main.tex (twice for TOC) or use latexmk
+\documentclass[11pt,a4paper,oneside,openany]{book}
+% Allow embedding newer PDF figures (e.g.\ diagrams exported as PDF 1.6+)
+\pdfminorversion=7
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+% Typography: Latin Modern (built into LaTeX; crisp on screen and print)
+\usepackage{lmodern}
+\usepackage{microtype}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{hyperref}
+\usepackage{bookmark}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black!70,
+  urlcolor=black!70,
+  citecolor=black!70,
+  plainpages=false,
+  pdfauthor={Blessed, Favour, Amodi},
+  pdftitle={Introduction to Cybersecurity Project}
+}
+
+% Chapter titles
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}
+  {\chaptertitlename\ \thechapter}{20pt}{\Huge}
+
+\definecolor{CoverAccent}{RGB}{30, 61, 114}
+\definecolor{CoverMuted}{RGB}{92, 104, 130}
+
+\begin{document}
+% Avoid duplicate PDF anchors between front matter and Chapter 1 (both “page 1”)
+\hypersetup{pageanchor=false}
+
+% ---------- Cover page ----------
+\begin{titlepage}
+  \thispagestyle{empty}
+  \begin{tikzpicture}[remember picture, overlay]
+    \fill[CoverAccent] (current page.north west) rectangle ($(current page.north east) + (0,-2.6)$);
+    \node[anchor=north, text=white, font=\bfseries\Large, yshift=-0.85cm] at (current page.north)
+      {National Research Tomsk State University};
+    \draw[white, line width=0.6pt]
+      ($(current page.north west) + (2,-2.35)$) -- ($(current page.north east) + (-2,-2.35)$);
+  \end{tikzpicture}
+
+  \vspace*{4.2cm}
+
+  \begin{center}
+    {\color{CoverMuted}\large\scshape BSc Software Engineering}\\[0.35em]
+    {\color{CoverMuted}\large Second Year}
+
+    \vspace{2.8cm}
+
+    {\Huge\bfseries Introduction to\\[0.35em] Cybersecurity Project\par}
+
+    \vspace{2.2cm}
+    \rule{0.62\textwidth}{0.6pt}
+
+    \vspace{1.6cm}
+    {\large\color{CoverMuted} Course project report}\\[0.8em]
+    {\large\textit{compiled chapters 1--4}}
+
+    \vfill
+
+    \begin{minipage}{0.88\textwidth}
+      \centering
+      {\large\bfseries Team}\\[1em]
+      \begin{tabular}{c}
+        Blessed \\[0.6em]
+        Favour \\[0.6em]
+        Amodi
+      \end{tabular}
+    \end{minipage}
+
+    \vspace{2cm}
+    {\normalsize\color{CoverMuted} Tomsk \quad\textperiodcentered\quad \the\year}
+  \end{center}
+
+  \begin{tikzpicture}[remember picture, overlay]
+    \fill[CoverAccent!80] (current page.south west) rectangle ($(current page.south east) + (0,0.42)$);
+  \end{tikzpicture}
+\end{titlepage}
+
+\frontmatter
+\tableofcontents
+
+\hypersetup{pageanchor=true}
+\mainmatter
+\include{chapter1}
+\include{chapter2}
+\include{chapter3}
+\include{chapter4}
+
+\end{document}

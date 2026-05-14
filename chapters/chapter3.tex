@@ -1,0 +1,40 @@
+\chapter{ISO 27001 Control Mapping}
+\chaptermark{ISO 27001 Mapping}
+\label{ch:iso27001}
+
+This chapter maps the secure online banking platform to ISO/IEC~27001 and summarizes gaps and compensating controls.
+
+\section{Methodology}
+
+To align the banking platform with widely used security practice, we applied a three-step mapping process:
+
+\begin{description}
+  \item[Inventory of existing controls:]
+    Identify defense-in-depth mechanisms already implemented in the Azure architecture.
+  \item[Annex A alignment:]
+    Map those mechanisms to the 93 controls in ISO/IEC~27001:2022 Annex~A.
+  \item[Gap analysis and compensation:]
+    Identify cases where controls might be bypassed (for example zero-day exploits or token theft) and define compensating safeguards.
+\end{description}
+
+\section{Control mapping and gap analysis}
+
+The complete mapping of technical controls to ISO/IEC~27001:2022 Annex~A---including gap analysis and compensating controls---is provided in the PDF insert on the following pages. This insert is the authoritative record for this section.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio,page=1]{ISO_Control_Mapping.pdf}
+  \caption{ISO control mapping (full document, page 1 of 2).}
+  \label{fig:iso-map-1}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio,page=2]{ISO_Control_Mapping.pdf}
+  \caption{ISO control mapping (full document, page 2 of 2).}
+  \label{fig:iso-map-2}
+\end{figure}
+
+\section{Strategic outcomes}
+
+Mapping the architecture to these controls establishes a strong baseline for digital banking. Compensating measures such as HSTS and hash-protected logs reduce residual risk and keep the system resilient when primary controls face advanced threats.

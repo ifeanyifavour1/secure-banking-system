@@ -1,0 +1,75 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tgpagella}
+\usepackage{microtype}
+\usepackage[left=2.2cm, right=2.2cm, top=2.2cm, bottom=2.2cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{setspace}
+\hypersetup{colorlinks=true, urlcolor=blue!60!black, linkcolor=blue!60!black}
+
+\definecolor{NavyBlue}{RGB}{0, 51, 102}
+\definecolor{DarkGray}{RGB}{50, 50, 50}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\color{DarkGray}
+
+\begin{document}
+
+\begin{center}
+  {\Large\bfseries\color{NavyBlue} Statement of Purpose}\\[0.6em]
+  {\large Visiting Student Research Program (VSRP), KAUST}\\[0.3em]
+  {\color{DarkGray} Blessed P.\ Nyathi \quad$\cdot$\quad Project: Continual Learning}\\[0.1em]
+  {\color{DarkGray}\small Faculty Advisor: Prof.\ Mohamed Elhoseiny}
+\end{center}
+
+\vspace{0.3em}
+{\color{gray}\hrule height 0.5pt}
+\vspace{0.6em}
+
+\setstretch{1.15}
+
+\textbf{\color{NavyBlue}Introduction and Motivation}
+
+I am a Software Engineering undergraduate at the National Research Tomsk State University, Russia, supported by the Zimbabwe Presidential Scholarship for academic excellence. My coursework in machine learning, linear algebra, calculus, and simulation modelling has given me a strong mathematical foundation and growing confidence in translating theory into working software. I am drawn to the Continual Learning project under Professor Elhoseiny because it addresses one of the most compelling open problems in AI: how can models acquire new knowledge over time without catastrophically forgetting what they have already learned? This question sits at the intersection of my interests in machine learning, systems design, and building reliable real-world software.
+
+\textbf{\color{NavyBlue}Academic Background and Projects}
+
+My degree programme emphasises both mathematical rigour and practical engineering. Courses in linear algebra and calculus underpin my understanding of optimisation and gradient-based learning, while statistics equips me to reason about stochastic processes and model uncertainty. I achieved A grades in Mathematics, Statistics, and Chemistry at ZIMSEC A-Level (19 points), reflecting the quantitative aptitude I bring to technical work. Beyond coursework, I pursue projects that push me to learn independently:
+
+\begin{itemize}
+  \item \textbf{LLM Agent Patterns (ML Coursework):} Built two multi-stage LLM pipelines in Python: a support-ticket processor with prompt chaining, routing, parallel analysis, and a reflection loop for self-improvement, and a research assistant with query decomposition, best-of-N generation, fan-in synthesis, and a producer-critic loop with plateau detection. Reasoning about model behaviour across sequential stages is conceptually analogous to the sequential-task setting in continual learning.
+
+  \item \textbf{LithiSim-Alpha, Mining Transport Simulator:} Developed a discrete-event simulation engine in C++ modelling truck dispatch, queuing, and stochastic breakdowns. The project demanded OOP, state-machine design, and probability distributions, skills that transfer directly to designing and evaluating ML experiments.
+
+  \item \textbf{Secure Online Banking Platform (Cybersecurity Course):} Designed a 7-table PostgreSQL schema and three-tier architecture (Flask, C\#/.NET Core, PostgreSQL), strengthening my ability to think in systems, modularity, and rigorous testing, practices equally important in research engineering.
+\end{itemize}
+
+\textbf{\color{NavyBlue}Why Continual Learning?}
+
+The standard ML paradigm assumes all training data is available at once, yet real-world applications (autonomous vehicles, medical diagnostics, personalised assistants) must adapt continuously. Professor Elhoseiny's research on A-GEM, Memory Aware Synapses, and uncertainty-guided continual learning with Bayesian neural networks directly tackles this limitation. I find the tension between model \emph{plasticity} (learning new tasks) and \emph{stability} (retaining old knowledge) intellectually fascinating and practically critical.
+
+My experience building agentic LLM pipelines with reflection and iterative refinement exposed me to parallel challenges: managing context across stages, preventing information loss between steps, and evaluating performance over successive iterations. This gives me practical intuition for the sequential-learning dynamics central to continual learning.
+
+\textbf{\color{NavyBlue}What I Hope to Contribute and Gain}
+
+If selected, I intend to develop a working research prototype that improves upon existing continual learning approaches. Concretely, I would: (1) study the foundational literature on catastrophic forgetting and deep architectures; (2) reproduce key baselines (A-GEM, MAS) to build a strong experimental foundation; and (3) explore targeted improvements (novel regularisation strategies, memory-efficient replay, or hybrid approaches), iterating rapidly from idea to prototype, as I have done in my Python and C++ projects.
+
+Beyond research output, I hope to gain mentorship from Professor Elhoseiny and the broader KAUST community. The opportunity to work in state-of-the-art facilities alongside colleagues from over 100 nationalities aligns with my own multicultural background: born in Zimbabwe, studying in Russia, and fluent in five languages (English, Ndebele, Shona, Venda, and Russian). I thrive in diverse settings and am confident I would both contribute to and benefit from KAUST's collaborative spirit.
+
+\textbf{\color{NavyBlue}Long-Term Goals}
+
+The VSRP would be a formative step toward my goal of pursuing graduate studies in machine learning and contributing to AI research that addresses real-world, evolving environments. Research experience at KAUST, a world-leading institution in AI, would provide the foundation, network, and perspective I need to pursue this ambition with confidence.
+
+\vspace{0.8em}
+
+I am excited by the prospect of joining the Continual Learning project and contributing meaningfully to Professor Elhoseiny's research group. Thank you for considering my application.
+
+\vspace{1.5em}
+
+\textbf{Blessed P.\ Nyathi}\\
+{\small \href{mailto:iamblessednyathi@gmail.com}{iamblessednyathi@gmail.com} \quad$\cdot$\quad \href{https://github.com/BlessedOfficial}{github.com/BlessedOfficial} \quad$\cdot$\quad \href{https://www.linkedin.com/in/blessed-nyathi}{linkedin.com/in/blessed-nyathi}}
+
+\end{document}

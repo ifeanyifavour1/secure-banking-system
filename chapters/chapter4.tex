@@ -1,0 +1,360 @@
+\chapter{Database Schema Design}
+\chaptermark{Database Schema Design}
+\label{ch:db-schema}
+
+This chapter presents the database schema for the secure online banking platform. The schema is implemented in \textbf{PostgreSQL} and enforces data integrity, financial accuracy, and auditability at the storage layer. Seven interrelated tables capture every aspect of the system---from user identity and account management to transaction processing and compliance logging.
+
+\section{Deployment platform}
+
+The original project design considered hosting the relational database on \textbf{Microsoft Azure} (for example Azure SQL Database). During setup we were \textbf{unable to create or activate an Azure account} (registration, verification, or subscription constraints). To continue the coursework without blocking on that provider, we deployed the same logical schema on \textbf{PostgreSQL} using \textbf{Neon's free tier}. Neon provides managed PostgreSQL with TLS, a web SQL editor, and a connection string suitable for local development and demonstration. The DDL in \texttt{banking\_schema.sql} is written for PostgreSQL and matches the tables created on Neon.
+
+\section{Design principles}
+
+The schema was designed around four guiding principles that align with the broader banking security design (identity controls, RBAC, encryption in transit, and auditability):
+
+\begin{description}
+  \item[Referential integrity:]
+    Foreign-key constraints link every account to a user, every transaction to its accounts, and every audit entry to the actor who performed it. Orphaned records are structurally impossible.
+  \item[Double-entry bookkeeping:]
+    Every financial movement produces two entries---a debit and a credit---ensuring that the ledger always balances and discrepancies are immediately detectable.
+  \item[Least privilege and role separation:]
+    The \texttt{users} table stores an RBAC role (\texttt{customer}, \texttt{teller}, \texttt{manager}, \texttt{admin}) that the backend API should enforce at every endpoint.
+  \item[Immutable audit trail:]
+    The \texttt{audit\_log} table captures before/after snapshots of state changes, supporting non-repudiation and compliance review.
+\end{description}
+
+\section{Entity--relationship diagram}
+
+Figure~\ref{fig:er-diagram} shows the entity--relationship diagram exported from the schema design tool (dbdiagram.io), including tables and relationships as implemented in PostgreSQL.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth,height=0.88\textheight,keepaspectratio,page=1]{db_schema_diagram.pdf}
+  \caption{Entity--relationship diagram of the banking schema (PostgreSQL).}
+  \label{fig:er-diagram}
+\end{figure}
+
+\section{Relationship summary}
+
+Table~\ref{tab:er-relationships} summarizes the relationships between the seven tables. Primary and foreign keys follow the naming used in \texttt{banking\_schema.sql}.
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l X @{}}
+    \toprule
+    \textbf{Parent table} & \textbf{Child table} & \textbf{Relationship} \\
+    \midrule
+    users              & accounts            & One user owns zero or more accounts. \\
+    users              & transactions        & One user initiates zero or more transactions. \\
+    users              & audit\_log          & One user generates zero or more log entries. \\
+    accounts           & transactions        & An account may be the source or destination of a transaction. \\
+    accounts           & transaction\_entries & An account has zero or more ledger entries. \\
+    accounts           & account\_limits     & An account has zero or more spending limits. \\
+    transactions       & transaction\_entries & One transaction produces one or more ledger entries. \\
+    transaction\_states & transactions       & One state applies to zero or more transactions. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Relationship summary for the banking schema.}
+  \label{tab:er-relationships}
+\end{table}
+
+\section{Table definitions}
+
+Each subsection below describes one table: its purpose, columns, data types, constraints, and security rationale. The full SQL script is provided in the accompanying file \texttt{banking\_schema.sql}.
+
+% ------------------------------------------------------------------
+\subsection{users}
+\label{sec:tbl-users}
+
+The \texttt{users} table stores identity, authentication, and authorization data for every person who interacts with the platform.
+
+\begin{table}[htbp]
+  \centering
+  \caption{\texttt{users} table columns (PostgreSQL)}
+  \label{tab:users}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l l X @{}}
+    \toprule
+    \textbf{Column} & \textbf{Type} & \textbf{Constraint} & \textbf{Purpose} \\
+    \midrule
+    user\_id            & UUID & PK, default \texttt{gen\_random\_uuid()} & Non-sequential surrogate key. \\
+    first\_name         & VARCHAR(100) & NOT NULL     & Legal first name. \\
+    last\_name          & VARCHAR(100) & NOT NULL     & Legal last name. \\
+    email               & VARCHAR(255) & UNIQUE, NOT NULL & Login identifier. \\
+    phone\_number       & VARCHAR(20)  & NULL         & Optional contact number. \\
+    password\_hash      & BYTEA        & NOT NULL     & Bcrypt/Argon2 hash (never plaintext). \\
+    password\_salt      & BYTEA        & NOT NULL     & Per-user cryptographic salt. \\
+    date\_of\_birth     & DATE         & NOT NULL     & KYC age verification. \\
+    national\_id        & VARCHAR(50)  & UNIQUE, NOT NULL & Government-issued ID for KYC. \\
+    address fields      & VARCHAR      & NULL         & Line~1, Line~2, city, country, postal code. \\
+    role                & VARCHAR(20)  & CHECK        & RBAC role: customer, teller, manager, admin. \\
+    mfa\_enabled        & BOOLEAN      & DEFAULT FALSE & Whether MFA is active. \\
+    mfa\_secret         & BYTEA        & NULL         & Encrypted TOTP seed. \\
+    is\_active          & BOOLEAN      & DEFAULT TRUE & Soft-delete flag. \\
+    is\_locked          & BOOLEAN      & DEFAULT FALSE & Set after repeated failed logins. \\
+    failed\_login\_count& INT          & DEFAULT 0    & Counter for account-lockout policy. \\
+    last\_login\_at     & TIMESTAMPTZ  & NULL         & Timestamp of most recent authentication. \\
+    created\_at         & TIMESTAMPTZ  & DEFAULT \texttt{NOW()} & Row creation time. \\
+    updated\_at         & TIMESTAMPTZ  & DEFAULT \texttt{NOW()} & Last modification time. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent\textbf{Security notes.}
+Passwords are stored as salted hashes using bcrypt or Argon2. The \texttt{is\_locked} flag and \texttt{failed\_login\_count} enforce account lockout, mitigating brute-force attacks. UUIDs are used instead of sequential integers to reduce predictable identifier enumeration.
+
+% ------------------------------------------------------------------
+\subsection{accounts}
+\label{sec:tbl-accounts}
+
+Each row in \texttt{accounts} represents a financial account owned by a user.
+
+\begin{table}[htbp]
+  \centering
+  \caption{\texttt{accounts} table columns (PostgreSQL)}
+  \label{tab:accounts}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l l X @{}}
+    \toprule
+    \textbf{Column} & \textbf{Type} & \textbf{Constraint} & \textbf{Purpose} \\
+    \midrule
+    account\_id       & UUID & PK, default \texttt{gen\_random\_uuid()} & Non-sequential surrogate key. \\
+    user\_id          & UUID & FK $\to$ \texttt{users} & Account owner. \\
+    account\_number   & VARCHAR(20)     & UNIQUE        & Customer-facing identifier. \\
+    account\_type     & VARCHAR(20)     & CHECK         & checking, savings, fixed\_deposit, loan. \\
+    currency          & VARCHAR(3)      & DEFAULT USD   & ISO~4217 currency code. \\
+    balance           & NUMERIC(18,2)   & DEFAULT 0     & Ledger (book) balance. \\
+    available\_balance& NUMERIC(18,2)   & DEFAULT 0     & Balance minus pending holds. \\
+    interest\_rate    & NUMERIC(5,4)    & NULL          & Annual rate for savings/loans. \\
+    status            & VARCHAR(20)     & CHECK         & active, frozen, closed, dormant. \\
+    opened\_at        & TIMESTAMPTZ     & DEFAULT \texttt{NOW()} & Account opening time. \\
+    closed\_at        & TIMESTAMPTZ     & NULL          & Populated when account is closed. \\
+    created\_at / updated\_at & TIMESTAMPTZ & DEFAULT \texttt{NOW()} & Row lifecycle timestamps. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent\textbf{Security notes.}
+The \texttt{status} column allows the system to freeze an account immediately if fraud is detected, without deleting data. Splitting \texttt{balance} and \texttt{available\_balance} prevents users from spending funds that are locked in pending transactions.
+
+% ------------------------------------------------------------------
+\subsection{transaction\_states}
+\label{sec:tbl-txstates}
+
+\texttt{transaction\_states} is a reference table that defines the finite set of lifecycle states a transaction can occupy.
+
+\begin{table}[htbp]
+  \centering
+  \caption{\texttt{transaction\_states} table columns and seed data}
+  \label{tab:txstates}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l l X @{}}
+    \toprule
+    \textbf{Column} & \textbf{Type} & \textbf{Constraint} & \textbf{Purpose} \\
+    \midrule
+    state\_id    & INT          & PK, \texttt{GENERATED ALWAYS AS IDENTITY} & Surrogate key. \\
+    state\_name  & VARCHAR(30)  & UNIQUE       & Machine-readable state label. \\
+    description  & VARCHAR(255) & NULL         & Human-readable explanation. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent The table is pre-seeded with seven states:
+
+\begin{enumerate}
+  \item \textbf{pending} --- transaction initiated, awaiting processing.
+  \item \textbf{authorized} --- authorized but not yet settled.
+  \item \textbf{completed} --- fully processed and settled.
+  \item \textbf{failed} --- processing error occurred.
+  \item \textbf{reversed} --- reversed after completion (e.g.\ chargeback).
+  \item \textbf{cancelled} --- cancelled before settlement.
+  \item \textbf{on\_hold} --- flagged for manual review by compliance.
+\end{enumerate}
+
+% ------------------------------------------------------------------
+\subsection{transactions}
+\label{sec:tbl-transactions}
+
+The \texttt{transactions} table records every financial operation in the system.
+
+\begin{table}[htbp]
+  \centering
+  \caption{\texttt{transactions} table columns (PostgreSQL)}
+  \label{tab:transactions}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l l X @{}}
+    \toprule
+    \textbf{Column} & \textbf{Type} & \textbf{Constraint} & \textbf{Purpose} \\
+    \midrule
+    transaction\_id    & UUID & PK, default \texttt{gen\_random\_uuid()} & Non-sequential surrogate key. \\
+    reference\_number  & VARCHAR(50)     & UNIQUE           & External reference for receipts. \\
+    transaction\_type  & VARCHAR(30)     & CHECK            & deposit, withdrawal, transfer, payment, fee, interest, refund. \\
+    amount             & NUMERIC(18,2)   & CHECK $>$ 0      & Transaction value. \\
+    currency           & VARCHAR(3)      & DEFAULT USD      & ISO~4217 code. \\
+    description        & VARCHAR(500)    & NULL             & Free-text memo. \\
+    state\_id          & INT             & FK $\to$ \texttt{transaction\_states} & Current lifecycle state. \\
+    source\_account\_id& UUID            & FK $\to$ \texttt{accounts} & Debited account (NULL for deposits). \\
+    dest\_account\_id  & UUID            & FK $\to$ \texttt{accounts} & Credited account (NULL for withdrawals). \\
+    initiated\_by      & UUID            & FK $\to$ \texttt{users}   & Actor who started the transaction. \\
+    ip\_address        & INET            & NULL             & Client IP (native PostgreSQL type). \\
+    channel            & VARCHAR(20)     & CHECK            & web, mobile, atm, branch, api. \\
+    scheduled\_at      & TIMESTAMPTZ     & NULL             & For future-dated transfers. \\
+    processed\_at      & TIMESTAMPTZ     & NULL             & When settlement completed. \\
+    created\_at / updated\_at & TIMESTAMPTZ & DEFAULT \texttt{NOW()} & Row lifecycle timestamps. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent\textbf{Security notes.}
+Capturing \texttt{ip\_address} and \texttt{channel} provides forensic context for fraud investigations. The \texttt{state\_id} foreign key ensures that only valid, pre-defined states can be assigned.
+
+% ------------------------------------------------------------------
+\subsection{transaction\_entries}
+\label{sec:tbl-txentries}
+
+\texttt{transaction\_entries} implements double-entry bookkeeping: every transaction generates at least two entries (a debit and a credit) so that the sum across all entries is always zero.
+
+\begin{table}[htbp]
+  \centering
+  \caption{\texttt{transaction\_entries} table columns (PostgreSQL)}
+  \label{tab:txentries}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l l X @{}}
+    \toprule
+    \textbf{Column} & \textbf{Type} & \textbf{Constraint} & \textbf{Purpose} \\
+    \midrule
+    entry\_id        & BIGINT          & PK, \texttt{GENERATED ALWAYS AS IDENTITY} & Surrogate key. \\
+    transaction\_id  & UUID            & FK $\to$ \texttt{transactions}  & Parent transaction. \\
+    account\_id      & UUID            & FK $\to$ \texttt{accounts}      & Affected account. \\
+    entry\_type      & VARCHAR(6)      & CHECK                  & \texttt{debit} or \texttt{credit}. \\
+    amount           & NUMERIC(18,2)   & CHECK $>$ 0            & Entry value. \\
+    balance\_before  & NUMERIC(18,2)   & NOT NULL               & Account balance before this entry. \\
+    balance\_after   & NUMERIC(18,2)   & NOT NULL               & Account balance after this entry. \\
+    created\_at      & TIMESTAMPTZ     & DEFAULT \texttt{NOW()} & Immutable creation timestamp. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent\textbf{Security notes.}
+Recording \texttt{balance\_before} and \texttt{balance\_after} creates an immutable ledger trail. If the running balance ever diverges from the sum of entries, the system can detect tampering or software bugs immediately.
+
+% ------------------------------------------------------------------
+\subsection{account\_limits}
+\label{sec:tbl-limits}
+
+\texttt{account\_limits} enforces configurable spending and transfer caps per account, providing a technical control against fraud and unauthorized fund movement.
+
+\begin{table}[htbp]
+  \centering
+  \caption{\texttt{account\_limits} table columns (PostgreSQL)}
+  \label{tab:limits}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l l X @{}}
+    \toprule
+    \textbf{Column} & \textbf{Type} & \textbf{Constraint} & \textbf{Purpose} \\
+    \midrule
+    limit\_id      & INT             & PK, \texttt{GENERATED ALWAYS AS IDENTITY} & Surrogate key. \\
+    account\_id    & UUID            & FK $\to$ \texttt{accounts}     & Account to which the limit applies. \\
+    limit\_type    & VARCHAR(30)     & CHECK                 & daily\_withdrawal, daily\_transfer, single\_transaction, monthly\_withdrawal, monthly\_transfer. \\
+    max\_amount    & NUMERIC(18,2)   & CHECK $>$ 0           & Maximum permitted value. \\
+    current\_usage & NUMERIC(18,2)   & DEFAULT 0             & Running total for the current period. \\
+    usage\_reset\_at& TIMESTAMPTZ    & NOT NULL              & When the counter resets. \\
+    is\_active     & BOOLEAN         & DEFAULT TRUE          & Enable or disable the limit. \\
+    created\_at / updated\_at & TIMESTAMPTZ & DEFAULT \texttt{NOW()} & Row lifecycle timestamps. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent A composite unique constraint on \texttt{(account\_id, limit\_type)} ensures that each account can have at most one active limit of each kind.
+
+% ------------------------------------------------------------------
+\subsection{audit\_log}
+\label{sec:tbl-audit}
+
+The \texttt{audit\_log} table provides an immutable compliance trail for security events and data changes.
+
+\begin{table}[htbp]
+  \centering
+  \caption{\texttt{audit\_log} table columns (PostgreSQL)}
+  \label{tab:audit}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabularx}{\textwidth}{@{} l l l X @{}}
+    \toprule
+    \textbf{Column} & \textbf{Type} & \textbf{Constraint} & \textbf{Purpose} \\
+    \midrule
+    log\_id          & BIGINT          & PK, \texttt{GENERATED ALWAYS AS IDENTITY} & Surrogate key. \\
+    event\_type      & VARCHAR(50)     & NOT NULL        & Category (e.g.\ \texttt{user.login}). \\
+    entity\_type     & VARCHAR(50)     & NOT NULL        & Table or resource affected. \\
+    entity\_id       & VARCHAR(100)    & NOT NULL        & Primary key of the affected row. \\
+    action           & VARCHAR(20)     & CHECK           & create, read, update, delete, login, logout, failed\_login. \\
+    performed\_by    & UUID            & FK $\to$ \texttt{users}  & Actor (NULL for system events). \\
+    old\_values      & JSONB           & NULL            & Snapshot before the change (queryable). \\
+    new\_values      & JSONB           & NULL            & Snapshot after the change. \\
+    ip\_address      & INET            & NULL            & Client IP for forensic correlation. \\
+    user\_agent      & VARCHAR(500)    & NULL            & Browser or API client identifier. \\
+    additional\_info & JSONB           & NULL            & Free-form context (e.g.\ error payloads). \\
+    created\_at      & TIMESTAMPTZ     & DEFAULT \texttt{NOW()} & Immutable event timestamp. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent\textbf{Security notes.}
+Storing \texttt{old\_values} and \texttt{new\_values} as \texttt{JSONB} enables indexed queries and point-in-time reconstruction. In production, append-only storage and integrity hashing of log streams should complement this table design.
+
+\section{Indexing strategy}
+
+Performance-critical queries are supported by targeted indexes:
+
+\begin{itemize}
+  \item \textbf{accounts}: indexed on \texttt{user\_id} for fast lookup of all accounts belonging to a customer.
+  \item \textbf{transactions}: indexed on \texttt{source\_account\_id}, \texttt{dest\_account\_id}, \texttt{state\_id}, and \texttt{created\_at} to accelerate statement generation, state-based filtering, and date-range queries.
+  \item \textbf{transaction\_entries}: indexed on \texttt{transaction\_id} and \texttt{account\_id} for efficient ledger reconstruction.
+  \item \textbf{account\_limits}: indexed on \texttt{account\_id} so that limit checks during transaction processing are fast.
+  \item \textbf{audit\_log}: indexed on \texttt{(entity\_type, entity\_id)}, \texttt{performed\_by}, \texttt{created\_at}, and \texttt{action} to support compliance queries and incident investigation.
+\end{itemize}
+
+\section{Security alignment summary}
+
+Table~\ref{tab:schema-security} maps schema features to the threats they help mitigate.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Schema features mapped to threats and controls}
+  \label{tab:schema-security}
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \renewcommand{\arraystretch}{1.2}
+  \begin{tabularx}{\textwidth}{@{} >{\raggedright\arraybackslash}p{3.8cm} >{\raggedright\arraybackslash}p{3.5cm} X @{}}
+    \toprule
+    \textbf{Schema feature} & \textbf{Threat addressed} & \textbf{Rationale} \\
+    \midrule
+    Salted password hashing       & Spoofing (credential theft)     & Passwords never stored in plaintext; slow hash resists offline guessing. \\
+    MFA columns                   & Spoofing (session hijacking)    & Second factor reduces impact of stolen passwords. \\
+    RBAC role column              & Elevation of privilege           & Enforced in application layer against role escalation. \\
+    Account lockout fields        & Spoofing (brute force)          & Failed login counters and lock flags throttle guessing. \\
+    Double-entry bookkeeping      & Tampering (balance manipulation)& Every movement has matching debit/credit entries. \\
+    Transaction state machine     & Repudiation (state falsification)& States constrained by FK to reference data. \\
+    Audit log with JSON snapshots & Repudiation (action denial)     & Actor, action, and before/after values recorded. \\
+    IP and user-agent logging     & Forensics / incident response   & Correlates sessions with security events. \\
+    Account limits                & Fraud / fund drain              & Caps velocity of withdrawals and transfers. \\
+    UUID primary keys             & Enumeration                     & Non-sequential identifiers harder to guess than integers. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

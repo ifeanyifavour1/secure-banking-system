@@ -1,0 +1,195 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tgpagella}
+\usepackage{microtype}
+\usepackage[left=2.0cm, right=2.0cm, top=1.8cm, bottom=1.8cm]{geometry}
+\usepackage{xcolor}
+\usepackage{fontawesome5}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{titlesec}
+\hypersetup{colorlinks=true, urlcolor=NavyBlue, linkcolor=NavyBlue}
+
+\pagestyle{empty}
+
+% ---------- Colours ----------
+\definecolor{NavyBlue}{RGB}{0, 51, 102}
+\definecolor{DarkGray}{RGB}{50, 50, 50}
+\definecolor{MedGray}{RGB}{110, 110, 110}
+\definecolor{RuleGray}{RGB}{180, 180, 180}
+
+% ---------- Section formatting ----------
+\titleformat{\section}
+  {\large\bfseries\color{NavyBlue}\scshape}
+  {}{0em}{}
+  [\vspace{-0.6em}{\color{RuleGray}\rule{\textwidth}{0.5pt}}]
+\titlespacing*{\section}{0pt}{0.9em}{0.4em}
+
+% ---------- Custom commands ----------
+\newcommand{\entry}[4]{%
+  \textbf{#1}\hfill{\color{MedGray}#2}\\[0.05em]
+  {\color{MedGray}\itshape #3}\hfill{\color{MedGray}#4}\par\vspace{0.15em}
+}
+
+\newcommand{\skills}[1]{%
+  \vspace{0.1em}%
+  {\color{NavyBlue}\footnotesize\textsc{Skills:}}\enspace{\small #1}\par
+}
+
+\setlength{\parindent}{0pt}
+\setlist[itemize]{leftmargin=1.4em, itemsep=1pt, parsep=0pt, topsep=2pt, label={\color{NavyBlue}\textbullet}}
+\color{DarkGray}
+
+\begin{document}
+
+% ================================================================
+% HEADER
+% ================================================================
+\begin{center}
+  {\fontsize{28}{34}\selectfont\bfseries\color{NavyBlue}Blessed P. Nyathi}\\[0.5em]
+  {\large Software Engineering Intern}\\[0.7em]
+  {\color{MedGray}
+    \faIcon{phone}\enspace +7\,996\,205\,8047 \quad$\cdot$\quad
+    \faIcon{envelope}\enspace \href{mailto:iamblessednyathi@gmail.com}{iamblessednyathi@gmail.com} \quad$\cdot$\quad
+    \faIcon{map-marker-alt}\enspace Tomsk, Russia
+  }\\[0.3em]
+  {\color{MedGray}
+    \faIcon{linkedin}\enspace \href{https://www.linkedin.com/in/blessed-nyathi}{linkedin.com/in/blessed-nyathi} \quad$\cdot$\quad
+    \faIcon{github}\enspace \href{https://github.com/BlessedOfficial}{github.com/BlessedOfficial}
+  }
+\end{center}
+
+\vspace{0.2em}
+{\color{RuleGray}\hrule height 0.8pt}
+
+% ================================================================
+% PROFESSIONAL SUMMARY
+% ================================================================
+\section*{Professional Summary}
+
+Second-year Software Engineering student at Tomsk State University with a strong foundation in mathematics, statistics, and programming. Building practical experience through projects spanning cybersecurity, simulation modelling, and machine learning. Seeking a software engineering internship to apply and deepen technical skills in a professional environment.
+
+% ================================================================
+% EDUCATION
+% ================================================================
+\section*{Education}
+
+\entry{BSc Software Engineering}{Sep 2024 -- Aug 2028}
+{National Research Tomsk State University}{Tomsk, Russia}
+\begin{itemize}
+  \item Core courses: Programming Languages, Linear Algebra, Calculus, Simulation Modelling, Machine Learning, Cybersecurity, etc.
+  \item Zimbabwe Presidential Scholarship recipient.
+\end{itemize}
+
+\vspace{0.4em}
+
+\entry{ZIMSEC A-Levels --- 19 Points}{Jan 2019 -- Jan 2021}
+{Fletcher High School}{Gweru, Zimbabwe}
+\begin{itemize}
+  \item A in Mathematics, Statistics, Chemistry; B in Physics.
+  \item Best Physics Student award (Form 5).
+\end{itemize}
+
+% ================================================================
+% PROJECTS
+% ================================================================
+\section*{Projects}
+
+\entry{Secure Online Banking Platform}{Feb 2026 -- Present}
+{Cybersecurity Course Project (Team of 3) --- TSU}{}
+\begin{itemize}
+  \item Designed a 7-table PostgreSQL schema implementing double-entry bookkeeping, RBAC roles, per-account transaction limits, and an immutable audit log; hosted on Neon free tier.
+  \item Applied the STRIDE threat model to systematically identify and mitigate spoofing, tampering, repudiation, information disclosure, denial-of-service, and privilege escalation threats.
+  \item Architected a three-tier system: Python Flask frontend, C\#/.NET Core backend API with JWT authentication, and PostgreSQL database.
+  \item Mapped security controls to ISO/IEC 27001:2022 Annex A and performed a gap analysis.
+\end{itemize}
+\skills{PostgreSQL, C\#/.NET Core, Flask, JWT Authentication, STRIDE, ISO 27001, Database Design, REST APIs, RBAC}
+
+\vspace{0.5em}
+
+\entry{LithiSim-Alpha --- Mining Transport Simulator}{May 2026 -- Present}
+{Personal Project --- \href{https://github.com/BlessedOfficial/LithiSim-Alpha}{GitHub}}{C++ / Python}
+\begin{itemize}
+  \item Built a discrete-event simulation engine in C++ modelling truck dispatch, queuing, and stochastic breakdowns in a mining transport scenario.
+  \item Implemented a reusable stochastic model hub with Poisson, exponential, and uniform-integer distributions for dispatch scheduling and travel-time sampling.
+  \item Designed a truck state machine (idle $\to$ hauling $\to$ dumping $\to$ broken) with health-aware dispatch policy and configurable parameters.
+  \item Structured the project with CMake for cross-platform builds; planning a Python analysis layer for log ingestion and policy comparison.
+\end{itemize}
+\skills{C++17, CMake, Object-Oriented Design, Stochastic Modelling, State Machines, Simulation Design}
+
+\vspace{0.5em}
+
+\entry{ML Coursework --- LLM Agent Patterns}{Mar 2026 -- Present}
+{Machine Learning Course --- \href{https://github.com/BlessedOfficial/machine-learning-assignments}{GitHub}}{Python}
+\begin{itemize}
+  \item \textbf{Task 1 --- Automated Support-Ticket Processor:} Built a multi-stage LLM pipeline with prompt chaining (preprocess $\to$ classify $\to$ respond), routing into 4 categories, parallel sentiment analysis \& keyword extraction, and a reflection loop for self-improving responses.
+  \item \textbf{Task 2 --- Domain-Routed Research Assistant:} Developed a pipeline with query decomposition, domain-specific route handling, best-of-N candidate generation with judge selection, fan-in synthesis, and a reflexion-style producer-critic improvement loop with plateau detection.
+  \item Integrated OpenRouter LLM APIs with retry/timeout/fallback resilience, structured JSON rubrics, and unified-diff logging across reflection iterations.
+\end{itemize}
+\skills{LLM APIs, Prompt Engineering, Agentic Patterns, Python, Async Parallelization, Reflection/Critique}
+
+% ================================================================
+% EXPERIENCE
+% ================================================================
+\section*{Experience}
+
+\entry{STEM Educator (A/O Level)}{Jun 2022 -- Jul 2023}
+{Oasis College}{Beitbridge, Zimbabwe}
+\begin{itemize}
+  \item Taught Mathematics, Physics, and Biology to Cambridge and ZIMSEC curriculum classes.
+  \item Enhanced student outcomes by 20\% through data-driven instruction and personalized learning plans.
+  \item Designed lesson plans incorporating technology and hands-on experiments.
+\end{itemize}
+
+\vspace{0.4em}
+
+\entry{Projects Director, Interact Club}{Jul 2020 -- Jan 2021}
+{Fletcher High School}{Gweru, Zimbabwe}
+\begin{itemize}
+  \item Raised \$500 over 12 months through vendor partnerships and fundraising campaigns.
+  \item Coordinated community service projects and led a team of student volunteers.
+\end{itemize}
+
+% ================================================================
+% VOLUNTEERING
+% ================================================================
+\section*{Volunteering}
+
+\entry{Student Volunteer}{Oct 2024 -- Present}
+{TSU Online}{Tomsk, Russia}
+\begin{itemize}
+  \item Assist international students with administrative processes, immigration, and English--Russian translation.
+\end{itemize}
+
+% ================================================================
+% TECHNICAL SKILLS
+% ================================================================
+\section*{Technical Skills}
+
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}l X@{}}
+  Proficient: & Python, C++, R, Excel, Mathematics, Statistics \\[0.3em]
+  Learning:   & C\#/.NET Core, Flask, PostgreSQL, HTML/CSS, Git, REST APIs, LLM Prompt Engineering, CMake \\[0.3em]
+  Concepts:   & STRIDE Threat Modelling, RBAC, JWT Auth, Database Schema Design, Prompt Chaining, Discrete-Event Simulation \\
+\end{tabularx}
+
+% ================================================================
+% LANGUAGES
+% ================================================================
+\section*{Languages}
+
+English (Proficient) \quad$\cdot$\quad Ndebele (Native) \quad$\cdot$\quad Russian (Intermediate) \quad$\cdot$\quad Shona (Proficient) \quad$\cdot$\quad Venda (Proficient)
+
+% ================================================================
+% ACHIEVEMENTS
+% ================================================================
+\section*{Achievements}
+
+\begin{itemize}[itemsep=3pt]
+  \item \textbf{Zimbabwe Presidential Scholarship} (2022/2023) --- Full university scholarship for academic excellence.
+  \item \textbf{Best Physics Student Award} (Form 5) --- Fletcher High School.
+  \item \textbf{Senior Prefect} --- Fletcher High School leadership role.
+\end{itemize}
+
+\end{document}
