@@ -1,0 +1,8 @@
+# Security-critical paths require security lead approval
+**/Auth/*.cs @ifeanyifavour1 @BlessedOfficial @ham0o0dy
+**/Security/*.py @ifeanyifavour1 @BlessedOfficial @ham0o0dy
+**/Sql/*.cs @ifeanyifavour1 @BlessedOfficial @ham0o0dy
+**/Validation/*.py @ifeanyifavour1 @BlessedOfficial @ham0o0dy
+
+# Everything else requires review from all team members
+* @ifeanyifavour1 @BlessedOfficial @ham0o0dy
