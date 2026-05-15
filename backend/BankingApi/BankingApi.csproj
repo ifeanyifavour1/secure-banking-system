@@ -1,0 +1,15 @@
+<!-- .NET 8 Web API project file -->
+<!-- NuGet packages to install:
+     - Microsoft.AspNetCore.Authentication.JwtBearer (JWT auth)
+     - Microsoft.EntityFrameworkCore (ORM)
+     - Npgsql.EntityFrameworkCore.PostgreSQL (PostgreSQL/Neon provider)
+     - Swashbuckle.AspNetCore (Swagger docs)
+     - BCrypt.Net-Next (password hashing)
+-->
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>

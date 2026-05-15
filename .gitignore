@@ -1,0 +1,57 @@
+# Local reference (large); keep out of Git
+db schema.pdf
+
+# Environment & secrets
+.env
+*.env.*
+appsettings.Development.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Test coverage
+htmlcov/
+.coverage
+TestResults/
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.pdf
+
+# Node
+node_modules/
+
+# Env
+.env
+
+# Build
+dist/
+build/
+
+# VSCode
+.vscode/
