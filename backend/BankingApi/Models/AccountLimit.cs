@@ -1,9 +1,17 @@
-// AccountLimit entity — maps to the 'account_limits' table
-//
-// Fields:
-//   limit_id (INT PK), account_id (FK → accounts),
-//   limit_type (daily_withdrawal|daily_transfer|single_transaction|monthly_withdrawal|monthly_transfer),
-//   max_amount, current_usage, usage_reset_at, is_active,
-//   created_at, updated_at
-//
-// Composite unique constraint: (account_id, limit_type)
+namespace BankingApi.Models
+{
+    public class AccountLimit
+    {
+        public int LimitId { get; set; }
+        public Guid AccountId { get; set; }
+
+        public string LimitType { get; set; } = string.Empty;
+        public decimal MaxAmount { get; set; }
+        public decimal CurrentUsage { get; set; }
+        public DateTime UsageResetAt { get; set; }
+
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+}
