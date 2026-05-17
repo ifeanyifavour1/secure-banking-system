@@ -1,5 +1,3 @@
-
-
 # Secure Banking System
 
 Secure online banking platform with branch protection, cryptography, and network security controls.
@@ -101,3 +99,5 @@ pip install -r requirements.txt
 python run.py
 ```
 
+# secure-banking-system
+Secure banking system with branch protection, cryptography, and network security controls - Final Project 2026
