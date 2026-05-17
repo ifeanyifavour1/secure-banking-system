@@ -6,6 +6,7 @@ namespace BankingApi.Models
         public Guid UserId { get; set; }
 
         public string AccountNumber { get; set; } = string.Empty;
+
         public string AccountType { get; set; } = string.Empty;
         public string Currency { get; set; } = "USD";
         
