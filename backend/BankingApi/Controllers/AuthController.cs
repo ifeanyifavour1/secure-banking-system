@@ -16,7 +16,9 @@ namespace BankingApi.Controllers
         {
             _db = db;
         }
+        
 
+        //Amodi , implement this endpoint
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
@@ -31,6 +33,7 @@ namespace BankingApi.Controllers
             return Ok(new { message = "Registration endpoint is ready for implementation." });
         }
 
+        //Favour, implement this endpoint
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
@@ -45,6 +48,8 @@ namespace BankingApi.Controllers
             return Ok(new { message = "Login endpoint is ready for implementation." });
         }
 
+
+        //Blessed, implement this endpoint
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh(RefreshTokenRequest request)
         {
