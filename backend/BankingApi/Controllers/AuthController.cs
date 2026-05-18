@@ -31,19 +31,63 @@ namespace BankingApi.Controllers
             return Ok(new { message = "Registration endpoint is ready for implementation." });
         }
 
-        [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginRequest request)
+//password     
+[HttpPost("login")]
+public async Task<IActionResult> Login(LoginRequest request)
+{
+    if (!ModelState.IsValid)
+    {
+        return ValidationProblem(ModelState);
+    }
+
+    var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+
+    if (user == null)
+    {
+        return Unauthorized(new { message = "Invalid email or password." });
+    }
+
+    if (!user.IsActive)
+    {
+        return Unauthorized(new { message = "Account is disabled. Please contact support." });
+    }
+
+    if (user.IsLocked)
+    {
+        return Unauthorized(new { message = "Account is locked due to too many failed login attempts " });
+    }
+
+    bool passwordValid = VerifyPassword(request.Password, user.PasswordHash);
+
+    if (!passwordValid)
+    {
+        user.FailedLoginCount += 1;
+
+        if (user.FailedLoginCount >= MaxFailedLoginAttempts)
         {
-            if (!ModelState.IsValid)
-            {
-                return ValidationProblem(ModelState);
-            }
-
-            // Next: find user, verify password, apply lockout/MFA, then issue tokens.
-            await Task.CompletedTask;
-
-            return Ok(new { message = "Login endpoint is ready for implementation." });
+            user.IsLocked = true;
         }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Unauthorized(new { message = "Invalid email or password." });
+    }
+
+    user.FailedLoginCount = 0;
+    user.LastLoginAt = DateTime.UtcNow;
+    user.UpdatedAt = DateTime.UtcNow;
+    await _db.SaveChangesAsync();
+
+    return Ok(new { message = "Login successful.", userId = user.UserId, role = user.Role });
+}
+
+private bool VerifyPassword(string password, byte[] passwordHash)
+{
+    string hash = System.Text.Encoding.UTF8.GetString(passwordHash);
+    return BCrypt.Net.BCrypt.Verify(password, hash);
+}
+
 
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh(RefreshTokenRequest request)
