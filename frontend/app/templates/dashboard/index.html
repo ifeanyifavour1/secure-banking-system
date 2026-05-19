@@ -1,8 +1,27 @@
-<!-- Dashboard page — extends base.html -->
-<!--
-  What to implement here:
-  - Display list of user's accounts
-  - For each account show: account_number, type, currency, balance, status
-  - Link each account to its detail page
-  - "New Transfer" button
--->
+{% extends "base.html" %}
+{% block title %}Dashboard · Secure Banking{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Dashboard</h1>
+  <p class="muted">You are signed in via the banking API.</p>
+
+  <dl class="details">
+    <dt>Email</dt>
+    <dd>{{ email or "—" }}</dd>
+    <dt>Role</dt>
+    <dd>{{ role or "—" }}</dd>
+    <dt>User ID</dt>
+    <dd><code>{{ user_id or "—" }}</code></dd>
+    <dt>Access token expires</dt>
+    <dd>{{ expires_at or "—" }}</dd>
+  </dl>
+
+  <form method="post" action="{{ url_for('dashboard.refresh_token') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <button type="submit" class="btn btn-secondary">Refresh access token</button>
+  </form>
+
+  <p class="hint">Accounts and transfers will appear here once those API endpoints are implemented.</p>
+</section>
+{% endblock %}

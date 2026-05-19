@@ -1,10 +1,42 @@
-<!-- Base HTML template — all pages extend this -->
-<!--
-  What to implement here:
-  - HTML5 doctype, charset UTF-8, responsive viewport
-  - Navigation bar: Dashboard, Transfer, Logout links
-  - {% block content %} for page-specific content
-  - Link to static/css/style.css
-  - Link to static/js/main.js
-  - Flash messages area for success/error notifications
--->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Secure Banking{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+  <body>
+    <header class="top-nav">
+      <div class="container nav-inner">
+        <a class="brand" href="{{ url_for('index') }}">Secure Banking</a>
+        <nav>
+          {% if session.get('access_token') %}
+            <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+            <a href="{{ url_for('transactions.transfer') }}">Transfer</a>
+            <a href="{{ url_for('auth.logout') }}">Logout</a>
+          {% else %}
+            <a href="{{ url_for('auth.login') }}">Login</a>
+            <a href="{{ url_for('auth.register') }}">Register</a>
+          {% endif %}
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-list">
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  </body>
+</html>

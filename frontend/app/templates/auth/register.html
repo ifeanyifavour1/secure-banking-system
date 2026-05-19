@@ -1,10 +1,80 @@
-<!-- Registration page — extends base.html -->
-<!--
-  What to implement here:
-  - Fields: first_name, last_name, email, password, national_id
-  - CSRF token
-  - Password strength requirements (min 8 chars)
-  - Submit button
-  - Link to login page
-  - Display validation errors
--->
+{% extends "base.html" %}
+{% block title %}Register · Secure Banking{% endblock %}
+
+{% block content %}
+<section class="card card-wide">
+  <h1>Create account</h1>
+  <p class="hint">Password: 8+ chars with upper, lower, digit, and special (@$!%*?&). Phone: +7 plus 10 digits (e.g. +71234567890).</p>
+
+  {% if form.errors %}
+    <div class="flash flash-danger">
+      <strong>Please fix the following:</strong>
+      <ul>
+        {% for field, errors in form.errors.items() %}
+          {% for error in errors %}
+            <li>{{ field }}: {{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="grid-2">
+      <div>
+        <label for="first_name">First name</label>
+        {{ form.first_name(class_="input", id="first_name") }}
+        {% for error in form.first_name.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div>
+        <label for="last_name">Last name</label>
+        {{ form.last_name(class_="input", id="last_name") }}
+        {% for error in form.last_name.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+    </div>
+
+    <label for="email">Email</label>
+    {{ form.email(class_="input", id="email") }}
+    {% for error in form.email.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+
+    <label for="password">Password</label>
+    {{ form.password(class_="input", id="password") }}
+    {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+
+    <label for="national_id">National ID</label>
+    {{ form.national_id(class_="input", id="national_id") }}
+
+    <label for="date_of_birth">Date of birth</label>
+    {{ form.date_of_birth(class_="input", id="date_of_birth") }}
+
+    <label for="phone_number">Phone (+7...)</label>
+    {{ form.phone_number(class_="input", id="phone_number", placeholder="+71234567890") }}
+
+    <label for="address_line1">Address line 1</label>
+    {{ form.address_line1(class_="input", id="address_line1") }}
+
+    <label for="address_line2">Address line 2</label>
+    {{ form.address_line2(class_="input", id="address_line2") }}
+
+    <div class="grid-2">
+      <div>
+        <label for="city">City</label>
+        {{ form.city(class_="input", id="city") }}
+      </div>
+      <div>
+        <label for="country">Country</label>
+        {{ form.country(class_="input", id="country") }}
+      </div>
+    </div>
+
+    <label for="postal_code">Postal code</label>
+    {{ form.postal_code(class_="input", id="postal_code") }}
+
+    {{ form.submit(class_="btn btn-primary") }}
+  </form>
+
+  <p class="card-footer">Already registered? <a href="{{ url_for('auth.login') }}">Sign in</a></p>
+</section>
+{% endblock %}
