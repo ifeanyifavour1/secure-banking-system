@@ -1,6 +1,8 @@
 using BankingApi.Data;
 using BankingApi.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using BankingApi.Models;
 
 namespace BankingApi.Controllers
 {
@@ -17,7 +19,7 @@ namespace BankingApi.Controllers
             _db = db;
         }
 
-        [HttpPost("register")]
+[HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
             if (!ModelState.IsValid)
@@ -25,10 +27,80 @@ namespace BankingApi.Controllers
                 return ValidationProblem(ModelState);
             }
 
-            // Next: hash password, create customer user, save, and write audit log.
-            await Task.CompletedTask;
+            // Check if unique database fields already exist
+            var emailExists = await _db.Users.AnyAsync(u => u.Email == request.Email);
+            if (emailExists)
+            {
+                return BadRequest(new { message = "Email is already registered." });
+            }
 
-            return Ok(new { message = "Registration endpoint is ready for implementation." });
+            var nationalIdExists = await _db.Users.AnyAsync(u => u.NationalId == request.NationalId);
+            if (nationalIdExists)
+            {
+                return BadRequest(new { message = "National ID is already registered." });
+            }
+
+            // Hash password to match the team's BCrypt byte[] implementation
+            string salt = BCrypt.Net.BCrypt.GenerateSalt(12);
+            string hashedStr = BCrypt.Net.BCrypt.HashPassword(request.Password, salt);
+            byte[] passwordHashBytes = System.Text.Encoding.UTF8.GetBytes(hashedStr);
+
+            // Create customer user matching User.cs properties
+            var newUser = new User
+            {
+                UserId = Guid.NewGuid(),
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                Email = request.Email,
+                PhoneNumber = request.PhoneNumber,
+                PasswordHash = passwordHashBytes,
+                PasswordSalt = Array.Empty<byte>(), 
+                DateOfBirth = request.DateOfBirth,
+                NationalId = request.NationalId,
+                AddressLine1 = request.AddressLine1,
+                AddressLine2 = request.AddressLine2,
+                City = request.City,
+                Country = request.Country,
+                PostalCode = request.PostalCode,
+                Role = "customer", 
+                MfaEnabled = false,
+                MfaSecret = null,
+                IsActive = false,
+                IsLocked = false,
+                FailedLoginCount = 0,
+                LastLoginAt = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.Users.Add(newUser);
+
+            // Write audit log entry matching AuditLogEntry.cs properties
+            var auditEntry = new AuditLogEntry
+            {
+                EventType = "SECURITY",
+                EntityType = "User",
+                EntityId = newUser.UserId.ToString(), 
+                Action = "USER_REGISTER",
+                PerformedBy = newUser.UserId, 
+                OldValues = null,
+                NewValues = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new { 
+                    email = newUser.Email, 
+                    role = newUser.Role, 
+                    ip = HttpContext.Connection.RemoteIpAddress?.ToString() 
+                })), 
+                IpAddress = HttpContext.Connection.RemoteIpAddress, 
+                UserAgent = Request.Headers["User-Agent"].ToString(),
+                AdditionalInfo = System.Text.Json.JsonDocument.Parse("{}"), 
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.AuditLogEntries.Add(auditEntry);
+
+            // Save changes to database
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "Registration successful!" });
         }
 
 //password     
