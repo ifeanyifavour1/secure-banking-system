@@ -35,6 +35,19 @@ namespace BankingApi.Controllers
                 return ValidationProblem(ModelState);
             }
 
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+            var normalizedNationalId = request.NationalId.Trim();
+
+            if (await _db.Users.AnyAsync(u => u.Email == normalizedEmail))
+            {
+                return BadRequest(new { message = "Email is already registered." });
+            }
+
+            if (await _db.Users.AnyAsync(u => u.NationalId == normalizedNationalId))
+            {
+                return BadRequest(new { message = "National ID is already registered." });
+            }
+
             var now = DateTime.UtcNow;
 
             var user = new User
@@ -42,12 +55,12 @@ namespace BankingApi.Controllers
                 UserId = Guid.NewGuid(),
                 FirstName = request.FirstName.Trim(),
                 LastName = request.LastName.Trim(),
-                Email = request.Email.Trim().ToLowerInvariant(),
+                Email = normalizedEmail,
                 PhoneNumber = request.PhoneNumber.Trim(),
                 PasswordHash = PasswordHashing.HashPassword(request.Password, WorkFactor),
                 PasswordSalt = Array.Empty<byte>(),
                 DateOfBirth = request.DateOfBirth,
-                NationalId = request.NationalId.Trim(),
+                NationalId = normalizedNationalId,
                 AddressLine1 = request.AddressLine1.Trim(),
                 AddressLine2 = string.IsNullOrWhiteSpace(request.AddressLine2) ? null : request.AddressLine2.Trim(),
                 City = request.City.Trim(),
