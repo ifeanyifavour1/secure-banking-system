@@ -1,11 +1,10 @@
-<!-- Transfer page — extends base.html -->
-<!--
-  What to implement here:
-  - Source account dropdown (user's active accounts)
-  - Destination account number input
-  - Amount input (min 0.01)
-  - Description input (optional, max 500 chars)
-  - CSRF token
-  - Submit button
-  - Display success confirmation or error (e.g. insufficient funds, limit exceeded)
--->
+{% extends "base.html" %}
+{% block title %}Transfer · Secure Banking{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Transfer</h1>
+  <p>{{ message }}</p>
+  <a class="btn btn-secondary" href="{{ url_for('dashboard.index') }}">Back to dashboard</a>
+</section>
+{% endblock %}

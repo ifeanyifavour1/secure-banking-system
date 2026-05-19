@@ -1,10 +1,35 @@
-<!-- Login page — extends base.html -->
-<!--
-  What to implement here:
-  - Email input field
-  - Password input field
-  - CSRF token (hidden field from Flask-WTF)
-  - Submit button
-  - Link to registration page
-  - Display error messages on failed login
--->
+{% extends "base.html" %}
+{% block title %}Sign in · Secure Banking{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Sign in</h1>
+  <p class="muted">Uses the .NET API at <code>{{ config.API_BASE_URL }}</code></p>
+
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+
+    <label for="email">Email</label>
+    {{ form.email(class_="input", id="email", autocomplete="email") }}
+    {% for error in form.email.errors %}
+      <p class="field-error">{{ error }}</p>
+    {% endfor %}
+
+    <label for="password">Password</label>
+    {{ form.password(class_="input", id="password", autocomplete="current-password") }}
+    {% for error in form.password.errors %}
+      <p class="field-error">{{ error }}</p>
+    {% endfor %}
+
+    <label for="totp_code">MFA code (if enabled)</label>
+    {{ form.totp_code(class_="input", id="totp_code", autocomplete="one-time-code") }}
+    {% if form.totp_code.description %}
+      <p class="hint">{{ form.totp_code.description }}</p>
+    {% endif %}
+
+    {{ form.submit(class_="btn btn-primary") }}
+  </form>
+
+  <p class="card-footer">No account? <a href="{{ url_for('auth.register') }}">Register</a></p>
+</section>
+{% endblock %}

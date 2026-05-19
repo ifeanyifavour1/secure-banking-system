@@ -9,10 +9,7 @@ namespace BankingApi.DTOs{
         public string Email { get; set; } = string.Empty;
 
         [Required]
-        [StringLength(100, MinimumLength = 8)]
-        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$")]
         public string Password { get; set; } = string.Empty;
-        
 
         public string? TotpCode { get; set; }
     }
