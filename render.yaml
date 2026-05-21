@@ -1,0 +1,47 @@
+# Render Blueprint — Secure Banking (API + Flask UI)
+# Docs: https://render.com/docs/blueprint-spec
+#
+# After deploy: set secret env vars in the Render dashboard (see DEPLOY_RENDER.md).
+
+services:
+  - type: web
+    name: banking-api
+    runtime: docker
+    rootDir: backend/BankingApi
+    dockerfilePath: Dockerfile
+    plan: free
+    healthCheckPath: /health/db
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__neondb
+        sync: false
+      - key: Jwt__Secret
+        sync: false
+      - key: Admin__RoleAssignmentSecret
+        sync: false
+      # Set after frontend is live: https://banking-frontend-xxxx.onrender.com
+      - key: Frontend__Url
+        sync: false
+
+  - type: web
+    name: banking-frontend
+    runtime: python
+    rootDir: frontend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 run:app
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_SECRET_KEY
+        sync: false
+      - key: Admin__RoleAssignmentSecret
+        sync: false
+      - key: API_BASE_URL
+        fromService:
+          type: web
+          name: banking-api
+          envVarKey: RENDER_EXTERNAL_URL

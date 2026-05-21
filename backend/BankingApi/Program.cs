@@ -20,6 +20,7 @@ using BankingApi.Middleware;
 using BankingApi.Services;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -27,6 +28,19 @@ using Microsoft.IdentityModel.Tokens;
 LoadEnvFile();
 
 var builder = WebApplication.CreateBuilder(args);
+
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
+}
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
@@ -126,11 +140,16 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("TellerOrAbove", policy => policy.RequireRole("admin", "manager", "teller"));
 });
 
-var frontendUrl = builder.Configuration["Frontend:Url"] ?? "http://localhost:5000";
+var corsOrigins = builder.Configuration["Cors:AllowedOrigins"]
+    ?? builder.Configuration["Frontend:Url"]
+    ?? "http://localhost:5000";
+var allowedOrigins = corsOrigins
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.WithOrigins(frontendUrl)
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -151,6 +170,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())

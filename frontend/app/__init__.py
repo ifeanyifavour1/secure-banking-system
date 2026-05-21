@@ -1,5 +1,6 @@
 from flask import Flask, session
 from flask_wtf.csrf import CSRFProtect
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import Config
 from app.routes.admin import admin_bp
@@ -18,6 +19,9 @@ def create_app() -> Flask:
 
     CSRFProtect(app)
     init_security(app)
+
+    if not app.debug:
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
