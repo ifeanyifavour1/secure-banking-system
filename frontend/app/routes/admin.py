@@ -42,10 +42,15 @@ def assign_role():
         flash("Please sign in again.", "warning")
         return redirect(url_for("auth.login"))
 
+    role = (form.role.data or "").strip().lower()
+    if role == "admin":
+        flash("The admin role cannot be assigned through the application.", "danger")
+        return redirect(url_for("admin.index"))
+
     try:
         result = set_user_role(
             form.email.data.strip(),
-            form.role.data,
+            role,
             access_token,
         )
         flash(

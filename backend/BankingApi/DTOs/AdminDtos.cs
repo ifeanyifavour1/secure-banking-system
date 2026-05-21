@@ -10,8 +10,8 @@ public class SetUserRoleRequest
 
     [Required]
     [RegularExpression(
-        @"^(customer|teller|manager|admin)$",
-        ErrorMessage = "Role must be customer, teller, manager, or admin.")]
+        @"^(customer|teller|manager)$",
+        ErrorMessage = "Role must be customer, teller, or manager. Admin cannot be assigned via API.")]
     public string Role { get; set; } = string.Empty;
 }
 

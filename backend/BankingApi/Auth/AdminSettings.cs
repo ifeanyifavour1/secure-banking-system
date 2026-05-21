@@ -3,7 +3,7 @@ namespace BankingApi.Auth;
 public class AdminSettings
 {
     /// <summary>
-    /// When set, callers must send this value in the X-Admin-Secret header (in addition to admin JWT).
+    /// Required for role assignment. Callers must send this value in X-Admin-Secret (in addition to admin JWT).
     /// </summary>
     public string? RoleAssignmentSecret { get; set; }
 }

@@ -7,7 +7,7 @@
 {{ page_header("System administration", "Assign user roles and review audit records.") }}
 
 <section class="card">
-  <p class="hint">Promote users to teller, manager, or admin. Sign out and back in after changing your own role so the JWT updates.</p>
+  <p class="hint">Assign customer, teller, or manager roles only. Admin accounts are provisioned outside the app (e.g. database seeds). Sign out and back in after changing your own role so the JWT updates.</p>
 
   <form method="post" action="{{ url_for('admin.assign_role') }}" novalidate class="form-stack">
     {{ form.hidden_tag() }}

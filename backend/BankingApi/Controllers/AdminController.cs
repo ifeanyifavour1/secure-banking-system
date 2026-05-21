@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 namespace BankingApi.Controllers;
 
 /// <summary>
-/// Internal admin operations. Requires admin JWT; optional X-Admin-Secret when configured.
+/// Internal admin operations. Requires admin JWT and X-Admin-Secret for role changes.
 /// </summary>
 [ApiController]
 [Route("api/internal/staff")]
@@ -23,11 +23,16 @@ public class AdminController : ControllerBase
 {
     public const string AdminSecretHeaderName = "X-Admin-Secret";
 
-    private static readonly HashSet<string> AllowedRoles = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>Roles that may be assigned via this API. Admin is never assignable (use DB seeds only).</summary>
+    private static readonly HashSet<string> AssignableRoles = new(StringComparer.OrdinalIgnoreCase)
     {
         "customer",
         "teller",
-        "manager",
+        "manager"
+    };
+
+    private static readonly HashSet<string> ProtectedRoles = new(StringComparer.OrdinalIgnoreCase)
+    {
         "admin"
     };
 
@@ -41,7 +46,8 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// Assign RBAC role to a user (e.g. promote to teller). Admin JWT + optional X-Admin-Secret required.
+    /// Assign RBAC role to a user (customer, teller, or manager only). Admin JWT + X-Admin-Secret required.
+    /// The admin role cannot be granted through this endpoint.
     /// </summary>
     [HttpPost("role")]
     public async Task<ActionResult<SetUserRoleResponse>> SetUserRole(SetUserRoleRequest request)
@@ -64,7 +70,14 @@ public class AdminController : ControllerBase
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var newRole = request.Role.Trim().ToLowerInvariant();
 
-        if (!AllowedRoles.Contains(newRole))
+        if (ProtectedRoles.Contains(newRole))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { message = "The admin role cannot be assigned through the application. Use database provisioning only." });
+        }
+
+        if (!AssignableRoles.Contains(newRole))
         {
             return BadRequest(new { message = "Invalid role." });
         }
@@ -115,7 +128,7 @@ public class AdminController : ControllerBase
         var configuredSecret = _adminSettings.RoleAssignmentSecret;
         if (string.IsNullOrWhiteSpace(configuredSecret))
         {
-            return true;
+            return false;
         }
 
         if (!Request.Headers.TryGetValue(AdminSecretHeaderName, out var provided) ||

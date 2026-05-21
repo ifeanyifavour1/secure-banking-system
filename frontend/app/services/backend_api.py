@@ -160,6 +160,12 @@ def refresh(refresh_token: str) -> dict:
 
 
 def set_user_role(email: str, role: str, access_token: str) -> dict:
+    if role.strip().lower() == "admin":
+        raise BackendApiError(
+            "The admin role cannot be assigned through the application.",
+            403,
+        )
+
     response = _post(
         "/api/internal/staff/role",
         {"email": email, "role": role},

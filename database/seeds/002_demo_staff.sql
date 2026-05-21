@@ -5,7 +5,7 @@
 --      teller@demo.bank  / TellerPass1!
 --      customer@demo.bank (optional, for account seed below)
 --
--- 2) Promote roles (or use POST /api/internal/staff/role as admin with JWT + X-Admin-Secret):
+-- 2) Promote roles. Admin must be set in SQL (API/UI cannot assign admin):
 UPDATE users
 SET role = 'admin',
     updated_at = NOW()

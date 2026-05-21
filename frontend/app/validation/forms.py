@@ -86,7 +86,6 @@ class AssignRoleForm(FlaskForm):
             ("customer", "customer"),
             ("teller", "teller"),
             ("manager", "manager"),
-            ("admin", "admin"),
         ],
         default="teller",
         validators=[DataRequired()],
