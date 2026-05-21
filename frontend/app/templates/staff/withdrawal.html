@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header %}
+{% block title %}Withdrawal · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+{{ page_header("Cash withdrawal", "Debit a customer account. Teller access required.", url_for('dashboard.index'), "Dashboard") }}
+
+<section class="card">
+  <form method="post" class="form-stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <label for="account_id">Account</label>
+    <select class="input" name="account_id" id="account_id" required>
+      <option value="">Select account…</option>
+      {% for a in accounts %}
+        {% if a.status == 'active' %}
+        <option value="{{ a.accountId }}">{{ a.accountNumber }} · {{ "%.2f"|format(a.availableBalance) }} {{ a.currency }} available</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+
+    <label for="amount">Amount</label>
+    <input class="input" type="text" name="amount" id="amount" placeholder="50.00" inputmode="decimal" required />
+
+    <label for="description">Description <span class="muted">(optional)</span></label>
+    <input class="input" type="text" name="description" id="description" placeholder="Cash withdrawal" />
+
+    <button type="submit" class="btn btn-primary">Complete withdrawal</button>
+  </form>
+</section>
+{% endblock %}

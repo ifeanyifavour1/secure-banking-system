@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header, empty_state %}
+{% block title %}Audit log · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+{{ page_header("Audit log", total_count ~ " events recorded", url_for('admin.index'), "Admin") }}
+
+<section class="card">
+  {% if entries %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Event</th>
+          <th>Entity</th>
+          <th>Action</th>
+          <th>By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td>{{ e.createdAt[:16].replace('T', ' ') if e.createdAt else "—" }}</td>
+          <td>{{ e.eventType }}</td>
+          <td>{{ e.entityType }}<br><code class="muted">{{ e.entityId[:13] }}…</code></td>
+          <td><span class="badge badge-role">{{ e.action }}</span></td>
+          <td><code>{{ (e.performedBy|string)[:8] if e.performedBy else "—" }}…</code></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <nav class="pagination">
+    {% if page > 1 %}
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('admin.audit_log', page=page-1) }}">← Previous</a>
+    {% endif %}
+    <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('admin.audit_log', page=page+1) }}">Next →</a>
+    {% endif %}
+  </nav>
+  {% else %}
+  {{ empty_state("No audit entries yet.") }}
+  {% endif %}
+</section>
+{% endblock %}

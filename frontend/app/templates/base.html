@@ -3,40 +3,95 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c2340" />
     <title>{% block title %}Secure Banking{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   </head>
-  <body>
-    <header class="top-nav">
-      <div class="container nav-inner">
-        <a class="brand" href="{{ url_for('index') }}">Secure Banking</a>
-        <nav>
+  <body class="{% block body_class %}{% endblock %}">
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="{{ url_for('index') }}">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>Secure Banking</span>
+        </a>
+
+        {% if session.get('access_token') %}
+        <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" data-nav-toggle>
+          <span></span><span></span><span></span>
+        </button>
+        {% endif %}
+
+        <nav class="site-nav" data-site-nav>
           {% if session.get('access_token') %}
-            <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
-            <a href="{{ url_for('transactions.transfer') }}">Transfer</a>
-            <a href="{{ url_for('auth.logout') }}">Logout</a>
+            <a href="{{ url_for('dashboard.index') }}" class="nav-link {{ 'is-active' if request.endpoint == 'dashboard.index' }}">Dashboard</a>
+            <a href="{{ url_for('transactions.transfer') }}" class="nav-link {{ 'is-active' if request.endpoint == 'transactions.transfer' }}">Transfer</a>
+            <a href="{{ url_for('transactions.history') }}" class="nav-link {{ 'is-active' if request.endpoint and request.endpoint.startswith('transactions.history') }}">History</a>
+
+            {% if is_staff %}
+            <div class="nav-dropdown" data-nav-dropdown>
+              <button type="button" class="nav-link nav-dropdown-trigger" aria-expanded="false">Staff</button>
+              <div class="nav-dropdown-menu">
+                <a href="{{ url_for('staff.open_account') }}">Open account</a>
+                <a href="{{ url_for('staff.deposit_funds') }}">Deposit</a>
+                <a href="{{ url_for('staff.withdraw_funds') }}">Withdraw</a>
+              </div>
+            </div>
+            {% endif %}
+
+            {% if is_manager %}
+            <a href="{{ url_for('staff.manage_accounts') }}" class="nav-link">Manage</a>
+            {% endif %}
+
+            {% if is_admin %}
+            <a href="{{ url_for('admin.index') }}" class="nav-link {{ 'is-active' if request.endpoint and request.endpoint.startswith('admin.') }}">Admin</a>
+            {% endif %}
+
+            <div class="nav-user">
+              <span class="nav-user-email" title="{{ session.get('email', '') }}">{{ session.get('email', '') }}</span>
+              <span class="badge badge-role badge-nav">{{ session.get('role', 'customer') }}</span>
+              <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-sm">Sign out</a>
+            </div>
           {% else %}
-            <a href="{{ url_for('auth.login') }}">Login</a>
-            <a href="{{ url_for('auth.register') }}">Register</a>
+            <a href="{{ url_for('auth.login') }}" class="nav-link {{ 'is-active' if request.endpoint == 'auth.login' }}">Sign in</a>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-accent btn-sm">Register</a>
           {% endif %}
         </nav>
       </div>
     </header>
 
-    <main class="container">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <div class="flash-list">
-            {% for category, message in messages %}
-              <div class="flash flash-{{ category }}">{{ message }}</div>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endwith %}
+    <main class="main-content">
+      <div class="container {% block container_class %}{% endblock %}">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-list" role="status">
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}" data-flash>
+                  <span class="flash-message">{{ message }}</span>
+                  <button type="button" class="flash-dismiss" aria-label="Dismiss" data-flash-dismiss>&times;</button>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
 
-      {% block content %}{% endblock %}
+        {% block content %}{% endblock %}
+      </div>
     </main>
 
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <span>&copy; Secure Banking. Member FDIC (demo).</span>
+        <span class="footer-meta">{{ config.API_BASE_URL }}</span>
+      </div>
+    </footer>
+
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
   </body>
 </html>

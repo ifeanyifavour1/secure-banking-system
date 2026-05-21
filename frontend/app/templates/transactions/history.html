@@ -1,8 +1,55 @@
-<!-- Transaction history page — extends base.html -->
-<!--
-  What to implement here:
-  - Paginated table of transactions for the account
-  - Columns: date, reference_number, type, amount, currency, state, channel
-  - Filter by: date range, transaction_type, state
-  - Pagination controls (prev/next)
--->
+{% extends "base.html" %}
+{% from "macros.html" import page_header, empty_state %}
+{% block title %}History · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+{% if account %}
+{{ page_header("Statement", account.accountNumber ~ " · " ~ (account.accountType | capitalize) ~ " · " ~ account.currency, url_for('transactions.history'), "All accounts") }}
+{% else %}
+{{ page_header("Transaction history", "Recent activity for this account", url_for('dashboard.index'), "Dashboard") }}
+{% endif %}
+
+<section class="card">
+  {% if transactions %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Reference</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transactions %}
+        <tr>
+          <td>{{ t.createdAt[:16].replace('T', ' ') if t.createdAt else "—" }}</td>
+          <td><code>{{ t.referenceNumber }}</code></td>
+          <td>{{ t.transactionType | capitalize }}</td>
+          <td><strong>{{ "%.2f"|format(t.amount) }}</strong> {{ t.currency }}</td>
+          <td><span class="badge badge-{{ t.state }}">{{ t.state }}</span></td>
+          <td class="muted">{{ t.description or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <nav class="pagination">
+    {% if page > 1 %}
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('transactions.history', account_id=account_id, page=page-1) }}">← Previous</a>
+    {% endif %}
+    <span class="muted">Page {{ page }} of {{ total_pages }} · {{ total_count }} transactions</span>
+    {% if page < total_pages %}
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('transactions.history', account_id=account_id, page=page+1) }}">Next →</a>
+    {% endif %}
+  </nav>
+  {% else %}
+  {{ empty_state("No transactions for this account yet.") }}
+  {% endif %}
+</section>
+{% endblock %}

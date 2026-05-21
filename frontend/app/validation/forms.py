@@ -1,6 +1,15 @@
+import uuid
+
 from flask_wtf import FlaskForm
-from wtforms import DateField, PasswordField, StringField, SubmitField
-from wtforms.validators import DataRequired, Email, Length, Optional, Regexp
+from wtforms import DateField, PasswordField, SelectField, StringField, SubmitField
+from wtforms.validators import DataRequired, Email, Length, Optional, Regexp, ValidationError
+
+
+def _uuid_validator(form, field):
+    try:
+        uuid.UUID(str(field.data).strip())
+    except ValueError as exc:
+        raise ValidationError("Enter a valid user ID (UUID from the customer dashboard).") from exc
 
 
 class LoginForm(FlaskForm):
@@ -67,3 +76,87 @@ class RegisterForm(FlaskForm):
     country = StringField("Country", validators=[DataRequired(), Length(max=56)])
     postal_code = StringField("Postal code", validators=[DataRequired(), Length(max=12)])
     submit = SubmitField("Create account")
+
+
+class AssignRoleForm(FlaskForm):
+    email = StringField("User email", validators=[DataRequired(), Email()])
+    role = SelectField(
+        "Role",
+        choices=[
+            ("customer", "customer"),
+            ("teller", "teller"),
+            ("manager", "manager"),
+            ("admin", "admin"),
+        ],
+        default="teller",
+        validators=[DataRequired()],
+    )
+    submit = SubmitField("Update role")
+
+
+class OpenAccountForm(FlaskForm):
+    user_id = StringField(
+        "Customer user ID",
+        validators=[DataRequired(), _uuid_validator],
+        description="UUID shown on the customer's dashboard.",
+    )
+    account_type = SelectField(
+        "Account type",
+        choices=[
+            ("checking", "checking"),
+            ("savings", "savings"),
+            ("fixed_deposit", "fixed_deposit"),
+            ("loan", "loan"),
+        ],
+        default="checking",
+        validators=[DataRequired()],
+    )
+    currency = StringField(
+        "Currency",
+        default="USD",
+        validators=[
+            DataRequired(),
+            Length(min=3, max=3),
+            Regexp(r"^[A-Z]{3}$", message="Use a 3-letter code, e.g. USD."),
+        ],
+    )
+    submit = SubmitField("Open account")
+
+
+class TransferForm(FlaskForm):
+    source_account_id = SelectField(
+        "From account",
+        choices=[],
+        validators=[DataRequired()],
+    )
+    dest_type = SelectField(
+        "Destination",
+        choices=[
+            ("mine", "My other account"),
+            ("other", "Another person's account"),
+        ],
+        default="other",
+        validators=[DataRequired()],
+    )
+    dest_account_id = SelectField(
+        "To my account",
+        choices=[],
+        validators=[Optional()],
+    )
+    dest_account_number = StringField(
+        "Recipient account number",
+        validators=[Optional(), Length(min=5, max=20)],
+        description="e.g. SB2603BOBCHK0001 — ask the recipient for their account number.",
+    )
+    amount = StringField(
+        "Amount",
+        validators=[
+            DataRequired(),
+            Regexp(r"^\d+(\.\d{1,2})?$", message="Enter a valid amount (e.g. 100.00)."),
+        ],
+    )
+    description = StringField(
+        "Description (optional)",
+        validators=[Optional(), Length(max=500)],
+    )
+    submit = SubmitField("Transfer")

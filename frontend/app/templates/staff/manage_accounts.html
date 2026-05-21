@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header %}
+{% block title %}Manage accounts · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+{{ page_header("Manage accounts", "Freeze or close accounts. Closing requires a zero balance.", url_for('dashboard.index'), "Dashboard") }}
+
+<section class="card">
+  <form method="post" class="form-stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <label for="account_id">Account</label>
+    <select class="input" name="account_id" id="account_id" required>
+      <option value="">Select account…</option>
+      {% for a in accounts %}
+        {% if a.status != 'closed' %}
+        <option value="{{ a.accountId }}">{{ a.accountNumber }} · {{ a.status }} · {{ "%.2f"|format(a.balance) }} {{ a.currency }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+
+    <div class="btn-row">
+      <button type="submit" name="action" value="freeze" class="btn btn-secondary">Freeze account</button>
+      <button type="submit" name="action" value="close" class="btn btn-danger" onclick="return confirm('Close this account? Balance must be zero.');">Close account</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
