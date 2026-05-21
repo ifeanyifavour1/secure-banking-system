@@ -1,252 +1,159 @@
-using System.Data;
 using System.Security.Claims;
-using System.Text.Json;
-using BankingApi.Data;
 using BankingApi.DTOs;
-using BankingApi.Models;
+using BankingApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace BankingApi.Controllers;
-
-public enum TransactionStateEnum { Pending = 1, Failed = 2, Completed = 3 }
 
 [ApiController]
 [Route("api/transactions")]
 [Authorize]
-[EnableRateLimiting("transactions")]
 public class TransactionsController : ControllerBase
 {
-    private readonly BankingDbContext _db;
-    private readonly ILogger<TransactionsController> _logger;
-
-    public TransactionsController(BankingDbContext db, ILogger<TransactionsController> logger)
+    private static readonly HashSet<string> StaffRoles = new(StringComparer.OrdinalIgnoreCase)
     {
-        _db = db;
-        _logger = logger;
-    }
+        "teller",
+        "manager",
+        "admin"
+    };
 
-    #region Helpers
+    private readonly TransactionService _transactionService;
 
-    private async Task<string?> CheckLimitAsync(Guid accountId, string limitType, decimal amount)
+    public TransactionsController(TransactionService transactionService)
     {
-        var limit = await _db.AccountLimits
-            .FirstOrDefaultAsync(l => l.AccountId == accountId && l.LimitType == limitType && l.IsActive);
-        
-        if (limit != null && (limit.CurrentUsage + amount) > limit.MaxAmount)
-            return $"Limit '{limitType}' exceeded.";
-        
-        return null;
+        _transactionService = transactionService;
     }
-
-    private async Task CreateAuditLogAsync(string action, string entityId, string details)
-    {
-        var log = new AuditLogEntry
-        {
-            EventType = "Transaction",
-            EntityType = "Transaction",
-            EntityId = entityId,
-            Action = action,
-            PerformedBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.Empty.ToString()),
-            IpAddress = HttpContext.Connection.RemoteIpAddress,
-            CreatedAt = DateTime.UtcNow,
-            AdditionalInfo = JsonDocument.Parse(JsonSerializer.Serialize(new { Message = details }))
-        };
-        _db.AuditLogEntries.Add(log);
-    }
-
-    private bool IsTellerOrAbove() => 
-        User.IsInRole("teller") || User.IsInRole("manager") || User.IsInRole("admin");
-
-    #endregion
 
     [HttpPost("transfer")]
-    public async Task<IActionResult> Transfer([FromBody] TransferRequest request)
+    public async Task<ActionResult<TransactionResponse>> Transfer(TransferRequest request)
     {
-        if (request.SourceAccountId == request.DestAccountId) return BadRequest("Cannot transfer to self.");
-        if (request.Amount <= 0) return BadRequest("Amount must be positive.");
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
 
-        var limitError = await CheckLimitAsync(request.SourceAccountId, "daily_transfer", request.Amount);
-        if (limitError != null) return BadRequest(limitError);
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(new { message = "Invalid or missing authentication token." });
+        }
 
-        using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         try
         {
-            var source = await _db.Accounts.FindAsync(request.SourceAccountId);
-            var dest = await _db.Accounts.FindAsync(request.DestAccountId);
+            var result = await _transactionService.ExecuteTransferAsync(
+                request,
+                userId,
+                IsStaff(),
+                HttpContext.Connection.RemoteIpAddress,
+                Request.Headers.UserAgent.ToString());
 
-            if (source == null || dest == null) return NotFound("Accounts not found.");
-            
-            var currentUserId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            if (source.UserId != currentUserId && !IsTellerOrAbove())
-                return Forbid("Unauthorized access.");
-
-            if (source.Status != "active" || dest.Status != "active") return BadRequest("Account not active.");
-            if (source.AvailableBalance < request.Amount) return BadRequest("Insufficient funds.");
-
-            var tx = new Models.Transaction {
-                ReferenceNumber = Guid.NewGuid().ToString("N").ToUpper(),
-                TransactionType = "transfer",
-                Amount = request.Amount,
-                SourceAccountId = source.AccountId,
-                DestAccountId = dest.AccountId,
-                InitiatedBy = currentUserId,
-                StateId = (int)TransactionStateEnum.Pending,
-                CreatedAt = DateTime.UtcNow
-            };
-            
-            _db.Transactions.Add(tx);
-            await _db.SaveChangesAsync();
-
-            source.AvailableBalance -= request.Amount;
-            source.Balance -= request.Amount;
-            dest.AvailableBalance += request.Amount;
-            dest.Balance += request.Amount;
-
-            _db.TransactionEntries.Add(new TransactionEntry { TransactionId = tx.TransactionId, AccountId = source.AccountId, EntryType = "debit",
-             Amount = request.Amount, BalanceBefore = source.Balance + request.Amount, BalanceAfter = source.Balance, CreatedAt = DateTime.UtcNow });
-            _db.TransactionEntries.Add(new TransactionEntry { TransactionId = tx.TransactionId, AccountId = dest.AccountId, EntryType = "credit",
-             Amount = request.Amount, BalanceBefore = dest.Balance - request.Amount, BalanceAfter = dest.Balance, CreatedAt = DateTime.UtcNow });
-
-            tx.StateId = (int)TransactionStateEnum.Completed;
-            await CreateAuditLogAsync("Transfer", tx.TransactionId.ToString(), $"Transferred {request.Amount} from {source.AccountId} to {dest.AccountId}");
-
-            await _db.SaveChangesAsync();
-            await transaction.CommitAsync();
-            return Ok(new { tx.ReferenceNumber });
+            return Ok(result);
         }
-        catch (Exception ex)
+        catch (TransferException ex)
         {
-            await transaction.RollbackAsync();
-            var correlationId = Guid.NewGuid();
-            _logger.LogError(ex, "Transfer failed. ID: {CorrelationId}", correlationId);
-            return StatusCode(500, new { message = "An internal error occurred.", correlationId });
+            return BadRequest(new { message = ex.Message });
         }
     }
 
     [HttpPost("deposit")]
-    [Authorize(Roles = "teller,manager,admin")]
-    public async Task<IActionResult> Deposit([FromBody] DepositRequest request)
+    [Authorize(Policy = "TellerOrAbove")]
+    public async Task<ActionResult<TransactionResponse>> Deposit(DepositRequest request)
     {
-        if (request.Amount <= 0) return BadRequest("Amount must be positive.");
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
 
-        using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(new { message = "Invalid or missing authentication token." });
+        }
+
         try
         {
-            var account = await _db.Accounts.FindAsync(request.AccountId);
-            if (account == null) return NotFound();
+            var result = await _transactionService.ExecuteDepositAsync(
+                request,
+                userId,
+                HttpContext.Connection.RemoteIpAddress,
+                Request.Headers.UserAgent.ToString());
 
-            account.Balance += request.Amount;
-            account.AvailableBalance += request.Amount;
-
-            var tx = new Models.Transaction {
-                ReferenceNumber = Guid.NewGuid().ToString("N").ToUpper(),
-                TransactionType = "deposit",
-                Amount = request.Amount,
-                DestAccountId = account.AccountId,
-                InitiatedBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value),
-                StateId = (int)TransactionStateEnum.Completed,
-                CreatedAt = DateTime.UtcNow
-            };
-            _db.Transactions.Add(tx);
-            await _db.SaveChangesAsync();
-
-            _db.TransactionEntries.Add(new TransactionEntry { TransactionId = tx.TransactionId, AccountId = account.AccountId, EntryType = "credit"
-            , Amount = request.Amount, BalanceBefore = account.Balance - request.Amount, BalanceAfter = account.Balance, CreatedAt = DateTime.UtcNow });
-
-            await CreateAuditLogAsync("Deposit", tx.TransactionId.ToString(), $"Deposited {request.Amount} to {account.AccountId}");
-
-            await _db.SaveChangesAsync();
-            await transaction.CommitAsync();
-            return Ok(new { tx.ReferenceNumber });
+            return Ok(result);
         }
-        catch (Exception ex)
+        catch (TransferException ex)
         {
-            await transaction.RollbackAsync();
-            var correlationId = Guid.NewGuid();
-            _logger.LogError(ex, "Deposit failed. ID: {CorrelationId}", correlationId);
-            return StatusCode(500, new { message = "An internal error occurred.", correlationId });
+            return BadRequest(new { message = ex.Message });
         }
     }
 
     [HttpPost("withdrawal")]
-    [Authorize(Roles = "teller,manager,admin")]
-    public async Task<IActionResult> Withdrawal([FromBody] WithdrawalRequest request)
+    [Authorize(Policy = "TellerOrAbove")]
+    public async Task<ActionResult<TransactionResponse>> Withdrawal(WithdrawalRequest request)
     {
-        if (request.Amount <= 0) return BadRequest("Amount must be positive.");
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
 
-        var limitError = await CheckLimitAsync(request.AccountId, "daily_withdrawal", request.Amount);
-        if (limitError != null) return BadRequest(limitError);
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(new { message = "Invalid or missing authentication token." });
+        }
 
-        using var transaction = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         try
         {
-            var account = await _db.Accounts.FindAsync(request.AccountId);
-            if (account == null) return NotFound();
-            if (account.AvailableBalance < request.Amount) return BadRequest("Insufficient funds.");
+            var result = await _transactionService.ExecuteWithdrawalAsync(
+                request,
+                userId,
+                HttpContext.Connection.RemoteIpAddress,
+                Request.Headers.UserAgent.ToString());
 
-            account.Balance -= request.Amount;
-            account.AvailableBalance -= request.Amount;
-
-            var tx = new Models.Transaction {
-                ReferenceNumber = Guid.NewGuid().ToString("N").ToUpper(),
-                TransactionType = "withdrawal",
-                Amount = request.Amount,
-                SourceAccountId = account.AccountId,
-                InitiatedBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value),
-                StateId = (int)TransactionStateEnum.Completed,
-                CreatedAt = DateTime.UtcNow
-            };
-            _db.Transactions.Add(tx);
-            await _db.SaveChangesAsync();
-
-            _db.TransactionEntries.Add(new TransactionEntry { TransactionId = tx.TransactionId, AccountId = account.AccountId, EntryType = "debit",
-             Amount = request.Amount, BalanceBefore = account.Balance + request.Amount, BalanceAfter = account.Balance, CreatedAt = DateTime.UtcNow });
-
-            await CreateAuditLogAsync("Withdrawal", tx.TransactionId.ToString(), $"Withdrew {request.Amount} from {account.AccountId}");
-
-            await _db.SaveChangesAsync();
-            await transaction.CommitAsync();
-            return Ok(new { tx.ReferenceNumber });
+            return Ok(result);
         }
-        catch (Exception ex)
+        catch (TransferException ex)
         {
-            await transaction.RollbackAsync();
-            var correlationId = Guid.NewGuid();
-            _logger.LogError(ex, "Withdrawal failed. ID: {CorrelationId}", correlationId);
-            return StatusCode(500, new { message = "An internal error occurred.", correlationId });
+            return BadRequest(new { message = ex.Message });
         }
     }
 
-    [HttpGet("history/{accountId}")]
-    public async Task<IActionResult> History(Guid accountId, [FromQuery] TransactionHistoryRequest request)
+    [HttpGet("history/{accountId:guid}")]
+    public async Task<ActionResult<TransactionHistoryResponse>> GetHistory(
+        Guid accountId,
+        [FromQuery] TransactionHistoryQuery query)
     {
-        if (!IsTellerOrAbove())
+        if (!TryGetCurrentUserId(out var userId))
         {
-            var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            var account = await _db.Accounts.FindAsync(accountId);
-            if (account == null || account.UserId != userId)
-                return Forbid("Unauthorized access.");
+            return Unauthorized(new { message = "Invalid or missing authentication token." });
         }
 
-        var query = _db.Transactions
-            .Include(t => t.State)
-            .Where(t => t.SourceAccountId == accountId || t.DestAccountId == accountId);
+        try
+        {
+            var result = await _transactionService.GetHistoryAsync(
+                accountId,
+                userId,
+                IsStaff(),
+                query);
 
-        if (request.StartDate.HasValue) query = query.Where(t => t.CreatedAt >= request.StartDate.Value);
-        if (request.EndDate.HasValue) query = query.Where(t => t.CreatedAt <= request.EndDate.Value);
-        if (!string.IsNullOrWhiteSpace(request.TransactionType)) query = query.Where(t => t.TransactionType == request.TransactionType);
-        if (!string.IsNullOrWhiteSpace(request.State)) query = query.Where(t => t.State.StateName == request.State);
+            return Ok(result);
+        }
+        catch (TransferException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 
-        var total = await query.CountAsync();
-        var history = await query.OrderByDescending(t => t.CreatedAt)
-                                 .Skip((request.Page - 1) * request.PageSize)
-                                 .Take(request.PageSize)
-                                 .ToListAsync();
+    private bool TryGetCurrentUserId(out Guid userId)
+    {
+        userId = default;
 
-        return Ok(new { total, request.Page, request.PageSize, data = history });
+        var subject = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
+        return Guid.TryParse(subject, out userId);
+    }
+
+    private bool IsStaff()
+    {
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        return role is not null && StaffRoles.Contains(role);
     }
 }
