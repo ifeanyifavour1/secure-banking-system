@@ -1,27 +1,103 @@
 {% extends "base.html" %}
+{% from "macros.html" import page_header, empty_state %}
 {% block title %}Dashboard · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
 
 {% block content %}
-<section class="card">
-  <h1>Dashboard</h1>
-  <p class="muted">You are signed in via the banking API.</p>
+{% set total_balance = accounts | sum(attribute='balance') if accounts else 0 %}
+{% set account_count = accounts | length %}
 
-  <dl class="details">
-    <dt>Email</dt>
-    <dd>{{ email or "—" }}</dd>
-    <dt>Role</dt>
-    <dd>{{ role or "—" }}</dd>
-    <dt>User ID</dt>
-    <dd><code>{{ user_id or "—" }}</code></dd>
-    <dt>Access token expires</dt>
-    <dd>{{ expires_at or "—" }}</dd>
-  </dl>
-
-  <form method="post" action="{{ url_for('dashboard.refresh_token') }}">
+<header class="page-header dashboard-hero">
+  <div class="page-header-text">
+    <h1>{% if email %}Welcome, {{ email.split('@')[0] | title }}{% else %}Account overview{% endif %}</h1>
+    <p class="page-subtitle">Your balances and account information at a glance</p>
+  </div>
+  <form method="post" action="{{ url_for('dashboard.refresh_token') }}" class="inline-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-    <button type="submit" class="btn btn-secondary">Refresh access token</button>
+    <button type="submit" class="btn btn-secondary btn-sm">Refresh session</button>
   </form>
+</header>
 
-  <p class="hint">Accounts and transfers will appear here once those API endpoints are implemented.</p>
+<div class="stat-grid">
+  <div class="stat-card stat-card-featured">
+    <p class="stat-card-label">Total balance</p>
+    <p class="stat-card-value">{{ "%.2f"|format(total_balance) }}</p>
+  </div>
+  <div class="stat-card">
+    <p class="stat-card-label">Accounts</p>
+    <p class="stat-card-value">{{ account_count }}</p>
+  </div>
+  <div class="stat-card">
+    <p class="stat-card-label">Access level</p>
+    <p class="stat-card-value"><span class="badge badge-role">{{ role or "customer" }}</span></p>
+  </div>
+</div>
+
+<div class="quick-actions">
+  <a href="{{ url_for('transactions.transfer') }}" class="quick-action">Transfer money</a>
+  <a href="{{ url_for('transactions.history') }}" class="quick-action">View statements</a>
+  {% if is_staff %}
+  <a href="{{ url_for('staff.deposit_funds') }}" class="quick-action">Deposit</a>
+  <a href="{{ url_for('staff.open_account') }}" class="quick-action">Open account</a>
+  {% endif %}
+  {% if is_admin %}
+  <a href="{{ url_for('admin.index') }}" class="quick-action">Administration</a>
+  {% endif %}
+</div>
+
+<section class="card">
+  <div class="card-section" style="margin-top:0;padding-top:0;border-top:none;">
+    <h2>Profile</h2>
+    <dl class="profile-grid">
+      <div class="profile-item">
+        <dt>Email</dt>
+        <dd>{{ email or "—" }}</dd>
+      </div>
+      <div class="profile-item">
+        <dt>Customer ID</dt>
+        <dd><code>{{ user_id or "—" }}</code></dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="card-section">
+    <h2>Accounts</h2>
+    {% if accounts %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Account number</th>
+            <th>Type</th>
+            <th>Currency</th>
+            <th>Balance</th>
+            <th>Available</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for account in accounts %}
+          <tr>
+            <td><code>{{ account.accountNumber }}</code></td>
+            <td>{{ account.accountType | capitalize }}</td>
+            <td>{{ account.currency }}</td>
+            <td><strong>{{ "%.2f"|format(account.balance) }}</strong></td>
+            <td>{{ "%.2f"|format(account.availableBalance) }}</td>
+            <td><span class="badge badge-{{ account.status }}">{{ account.status }}</span></td>
+            <td><a class="table-link" href="{{ url_for('transactions.history', account_id=account.accountId) }}">Statement</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    {{ empty_state(
+      "No accounts are linked yet. Provide your Customer ID at any branch to open an account.",
+      url_for('staff.open_account') if is_staff else none,
+      "Open account" if is_staff else none
+    ) }}
+    {% endif %}
+  </div>
 </section>
 {% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header %}
+{% block title %}Open account · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+{{ page_header("Open customer account", "Create a checking or savings account for a registered customer.", url_for('dashboard.index'), "Dashboard") }}
+
+<section class="card">
+  <p class="hint">Ask the customer for their <strong>User ID</strong> from their dashboard after they register.</p>
+
+  <form method="post" novalidate class="form-stack">
+    {{ form.hidden_tag() }}
+
+    <label for="user_id">Customer user ID</label>
+    {{ form.user_id(class_="input", id="user_id", placeholder="00000000-0000-0000-0000-000000000000") }}
+    {% if form.user_id.description %}<p class="hint">{{ form.user_id.description }}</p>{% endif %}
+    {% for error in form.user_id.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+
+    <div class="grid-2">
+      <div>
+        <label for="account_type">Account type</label>
+        {{ form.account_type(class_="input", id="account_type") }}
+        {% for error in form.account_type.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div>
+        <label for="currency">Currency</label>
+        {{ form.currency(class_="input", id="currency") }}
+        {% for error in form.currency.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+    </div>
+
+    {{ form.submit(class_="btn btn-primary", value="Open account") }}
+  </form>
+</section>
+{% endblock %}

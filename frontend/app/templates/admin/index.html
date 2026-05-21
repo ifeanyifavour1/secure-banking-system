@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header %}
+{% block title %}Admin · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+{{ page_header("System administration", "Assign user roles and review audit records.") }}
+
+<section class="card">
+  <p class="hint">Promote users to teller, manager, or admin. Sign out and back in after changing your own role so the JWT updates.</p>
+
+  <form method="post" action="{{ url_for('admin.assign_role') }}" novalidate class="form-stack">
+    {{ form.hidden_tag() }}
+
+    <label for="email">User email</label>
+    {{ form.email(class_="input", id="email", placeholder="teller@demo.bank") }}
+    {% for error in form.email.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+
+    <label for="role">Role</label>
+    {{ form.role(class_="input", id="role") }}
+    {% for error in form.role.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+
+    {{ form.submit(class_="btn btn-primary", value="Assign role") }}
+  </form>
+
+  <div class="admin-tiles">
+    <div class="admin-tile">
+      <h3>Audit log</h3>
+      <p>Review security and account events across the platform.</p>
+      <a href="{{ url_for('admin.audit_log') }}" class="btn btn-secondary btn-sm">View audit log</a>
+    </div>
+  </div>
+
+  <p class="card-footer"><a href="{{ url_for('dashboard.index') }}">← Dashboard</a></p>
+</section>
+{% endblock %}

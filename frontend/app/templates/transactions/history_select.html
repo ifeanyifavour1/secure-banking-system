@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header, empty_state %}
+{% block title %}Transaction history · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+
+{% block content %}
+{{ page_header("Account statements", "Select an account to view transaction history.") }}
+
+<section class="card">
+  {% if accounts %}
+  <ul class="link-list">
+    {% for a in accounts %}
+    <li>
+      <a href="{{ url_for('transactions.history', account_id=a.accountId) }}">
+        <span><code>{{ a.accountNumber }}</code> — {{ a.accountType }}</span>
+        <span class="badge badge-{{ a.status }}">{{ a.status }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  {{ empty_state("No accounts found.") }}
+  {% endif %}
+  <p class="card-footer"><a href="{{ url_for('dashboard.index') }}">← Dashboard</a></p>
+</section>
+{% endblock %}

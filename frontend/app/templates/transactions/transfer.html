@@ -1,10 +1,80 @@
 {% extends "base.html" %}
+{% from "macros.html" import page_header, empty_state %}
 {% block title %}Transfer · Secure Banking{% endblock %}
+{% block container_class %}container-wide{% endblock %}
 
 {% block content %}
+{{ page_header("Transfer money", "Move funds between your accounts or pay another customer by account number.") }}
+
 <section class="card">
-  <h1>Transfer</h1>
-  <p>{{ message }}</p>
-  <a class="btn btn-secondary" href="{{ url_for('dashboard.index') }}">Back to dashboard</a>
+  {% if not has_accounts %}
+  {{ empty_state(
+    "You need at least one active account to transfer.",
+    url_for('staff.open_account') if is_staff else none,
+    "Open account" if is_staff else none
+  ) }}
+  <p class="card-footer"><a href="{{ url_for('dashboard.index') }}">← Dashboard</a></p>
+  {% else %}
+  <form method="post" novalidate id="transfer-form" class="form-stack">
+    {{ form.hidden_tag() }}
+
+    <label for="source_account_id">From account</label>
+    {{ form.source_account_id(class_="input", id="source_account_id") }}
+    {% for error in form.source_account_id.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+
+    <label for="dest_type">Destination</label>
+    {{ form.dest_type(class_="input", id="dest_type") }}
+
+    <div id="dest-mine" class="dest-panel">
+      <label for="dest_account_id">To my account</label>
+      {{ form.dest_account_id(class_="input", id="dest_account_id") }}
+      {% for error in form.dest_account_id.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div id="dest-other" class="dest-panel">
+      <label for="dest_account_number">Recipient account number</label>
+      {{ form.dest_account_number(class_="input", id="dest_account_number", placeholder="SB2603BOBCHK0001") }}
+      {% if form.dest_account_number.description %}
+        <p class="hint">{{ form.dest_account_number.description }}</p>
+      {% endif %}
+      {% for error in form.dest_account_number.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label for="amount">Amount</label>
+        {{ form.amount(class_="input", id="amount", placeholder="100.00", inputmode="decimal") }}
+        {% for error in form.amount.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div>
+        <label for="description">Description <span class="muted">(optional)</span></label>
+        {{ form.description(class_="input", id="description", placeholder="Payment note") }}
+      </div>
+    </div>
+
+    {{ form.submit(class_="btn btn-primary", value="Submit transfer") }}
+  </form>
+  <p class="card-footer"><a href="{{ url_for('dashboard.index') }}">← Dashboard</a></p>
+  {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const destType = document.getElementById("dest_type");
+    const minePanel = document.getElementById("dest-mine");
+    const otherPanel = document.getElementById("dest-other");
+    if (!destType || !minePanel || !otherPanel) return;
+
+    function toggleDest() {
+      const isMine = destType.value === "mine";
+      minePanel.style.display = isMine ? "block" : "none";
+      otherPanel.style.display = isMine ? "none" : "block";
+    }
+
+    destType.addEventListener("change", toggleDest);
+    toggleDest();
+  })();
+</script>
 {% endblock %}
