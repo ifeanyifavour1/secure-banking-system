@@ -57,3 +57,4 @@ build/
 
 # VSCode
 .vscode/
+.aider*

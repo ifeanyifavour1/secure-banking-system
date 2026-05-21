@@ -1,86 +1,131 @@
+using System.Text.Json;
 using BankingApi.Data;
-using BankingApi.DTOs;
 using BankingApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace BankingApi.Controllers;
-
-[ApiController]
-[Route("api/audit")]
-[Authorize(Policy = "AdminOnly")]
-public class AuditController : ControllerBase
+namespace BankingApi.Controllers
 {
-    private readonly BankingDbContext _db;
-
-    public AuditController(BankingDbContext db)
+    [ApiController]
+    [Route("api/audit")]
+    [Authorize(Roles = "admin")]
+    public class AuditController : ControllerBase
     {
-        _db = db;
-    }
+        private readonly BankingDbContext _db;
 
-    [HttpGet]
-    public async Task<ActionResult<AuditLogListResponse>> GetAuditLogs([FromQuery] AuditQuery query)
-    {
-        var page = Math.Max(1, query.Page);
-        var pageSize = Math.Clamp(query.PageSize, 1, 200);
+        private const int DefaultPageSize = 20;
+        private const int MaxPageSize = 100;
 
-        IQueryable<AuditLogEntry> auditQuery = _db.AuditLogEntries.AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(query.EntityType))
+        public AuditController(BankingDbContext db)
         {
-            auditQuery = auditQuery.Where(e => e.EntityType == query.EntityType.Trim());
+            _db = db;
         }
 
-        if (!string.IsNullOrWhiteSpace(query.EntityId))
+        [HttpGet]
+        public async Task<IActionResult> GetAuditLogs(
+            [FromQuery] string? entityType,
+            [FromQuery] string? entityId,
+            [FromQuery] string? action,
+            [FromQuery] Guid? performedBy,
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = DefaultPageSize,
+            CancellationToken cancellationToken = default)
         {
-            auditQuery = auditQuery.Where(e => e.EntityId == query.EntityId.Trim());
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Action))
-        {
-            auditQuery = auditQuery.Where(e => e.Action == query.Action.Trim().ToLowerInvariant());
-        }
-
-        if (query.PerformedBy.HasValue)
-        {
-            auditQuery = auditQuery.Where(e => e.PerformedBy == query.PerformedBy);
-        }
-
-        if (query.StartDate.HasValue)
-        {
-            auditQuery = auditQuery.Where(e => e.CreatedAt >= query.StartDate.Value);
-        }
-
-        if (query.EndDate.HasValue)
-        {
-            auditQuery = auditQuery.Where(e => e.CreatedAt <= query.EndDate.Value);
-        }
-
-        var totalCount = await auditQuery.CountAsync();
-
-        var entries = await auditQuery
-            .OrderByDescending(e => e.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(e => new AuditLogResponse
+            if (startDate.HasValue && endDate.HasValue && startDate.Value > endDate.Value)
             {
-                LogId = e.LogId,
-                EventType = e.EventType,
-                EntityType = e.EntityType,
-                EntityId = e.EntityId,
-                Action = e.Action,
-                PerformedBy = e.PerformedBy,
-                CreatedAt = e.CreatedAt
-            })
-            .ToListAsync();
+                return BadRequest(new { message = "startDate cannot be after endDate." });
+            }
 
-        return Ok(new AuditLogListResponse
+            page = page < 1 ? 1 : page;
+            pageSize = pageSize < 1 ? DefaultPageSize : pageSize > MaxPageSize ? MaxPageSize : pageSize;
+
+            IQueryable<AuditLogEntry> query = _db.AuditLogEntries;
+
+            if (!string.IsNullOrWhiteSpace(entityType))
+            {
+                query = query.Where(a => a.EntityType == entityType.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(entityId))
+            {
+                query = query.Where(a => a.EntityId == entityId.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(action))
+            {
+                var actionFilter = action.Trim().ToLowerInvariant();
+                query = query.Where(a => a.Action.ToLower() == actionFilter);
+            }
+
+            if (performedBy.HasValue)
+            {
+                query = query.Where(a => a.PerformedBy == performedBy.Value);
+            }
+
+            if (startDate.HasValue)
+            {
+                query = query.Where(a => a.CreatedAt >= startDate.Value.ToUniversalTime());
+            }
+
+            if (endDate.HasValue)
+            {
+                var exclusiveEndLimit = endDate.Value.ToUniversalTime().AddDays(1);
+                query = query.Where(a => a.CreatedAt < exclusiveEndLimit);
+            }
+
+            var totalItems = await query.CountAsync(cancellationToken);
+
+            var logs = await query
+                .OrderByDescending(a => a.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(a => MapToResponse(a))
+                .ToListAsync(cancellationToken);
+
+            return Ok(new
+            {
+                totalItems,
+                page,
+                pageSize,
+                data = logs
+            });
+        }
+
+        private static AuditLogResponse MapToResponse(AuditLogEntry entry) => new()
         {
-            Page = page,
-            PageSize = pageSize,
-            TotalCount = totalCount,
-            Entries = entries
-        });
+            EventType = entry.EventType,
+            EntityType = entry.EntityType,
+            EntityId = entry.EntityId,
+            Action = entry.Action,
+            PerformedBy = entry.PerformedBy,
+            IpAddress = entry.IpAddress?.ToString() ?? "unknown",
+            UserAgent = entry.UserAgent,
+            AdditionalInfo = entry.AdditionalInfo,
+            OldValues = entry.OldValues,
+            NewValues = entry.NewValues,
+            CreatedAt = entry.CreatedAt
+        };
     }
+
+    #region Data Transfer Objects (DTOs)
+
+    public class AuditLogResponse
+    {
+        public string EventType { get; set; } = string.Empty;
+        public string EntityType { get; set; } = string.Empty;
+        public string EntityId { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public Guid? PerformedBy { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
+        public string? UserAgent { get; set; }
+        public JsonDocument? AdditionalInfo { get; set; }
+        public JsonDocument? OldValues { get; set; }
+        public JsonDocument? NewValues { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    #endregion
 }

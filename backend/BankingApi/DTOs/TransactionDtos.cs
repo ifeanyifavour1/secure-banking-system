@@ -11,8 +11,11 @@ public class TransferRequest
     public Guid DestAccountId { get; set; }
 
     [Required]
-    [Range(0.01, double.MaxValue)]
+    [Range(0.01, 1000000000)]
     public decimal Amount { get; set; }
+
+    [StringLength(3, MinimumLength = 3)]
+    public string Currency { get; set; } = "USD";
 
     [StringLength(500)]
     public string? Description { get; set; }
@@ -24,7 +27,7 @@ public class DepositRequest
     public Guid AccountId { get; set; }
 
     [Required]
-    [Range(0.01, double.MaxValue)]
+    [Range(0.01, 1000000000)]
     public decimal Amount { get; set; }
 
     [StringLength(500)]
@@ -37,7 +40,7 @@ public class WithdrawalRequest
     public Guid AccountId { get; set; }
 
     [Required]
-    [Range(0.01, double.MaxValue)]
+    [Range(0.01, 1000000000)]
     public decimal Amount { get; set; }
 
     [StringLength(500)]
@@ -50,34 +53,28 @@ public class TransactionResponse
     public string ReferenceNumber { get; set; } = string.Empty;
     public string TransactionType { get; set; } = string.Empty;
     public decimal Amount { get; set; }
-    public string Currency { get; set; } = string.Empty;
+    public string Currency { get; set; } = "USD";
     public string State { get; set; } = string.Empty;
-    public Guid? SourceAccountId { get; set; }
-    public Guid? DestAccountId { get; set; }
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; }
-    public DateTime? ProcessedAt { get; set; }
 }
 
-public class TransactionHistoryQuery
+public class TransactionHistoryRequest
 {
-    public DateTime? StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
-    public string? TransactionType { get; set; }
-    public string? State { get; set; }
+    [Required]
+    public Guid AccountId { get; set; }
 
+    public DateTime? StartDate { get; set; }
+    
+    public DateTime? EndDate { get; set; }
+    
+    public string? TransactionType { get; set; }
+    
+    public string? State { get; set; }
+    
     [Range(1, int.MaxValue)]
     public int Page { get; set; } = 1;
 
     [Range(1, 100)]
     public int PageSize { get; set; } = 20;
-}
-
-public class TransactionHistoryResponse
-{
-    public Guid AccountId { get; set; }
-    public int Page { get; set; }
-    public int PageSize { get; set; }
-    public int TotalCount { get; set; }
-    public IReadOnlyList<TransactionResponse> Transactions { get; set; } = Array.Empty<TransactionResponse>();
 }

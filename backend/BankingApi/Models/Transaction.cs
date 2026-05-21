@@ -13,6 +13,7 @@ namespace BankingApi.Models
         public string? Description { get; set; }
 
         public int StateId { get; set; }
+        public virtual TransactionState State { get; set; } = null!;
         public Guid? SourceAccountId { get; set; }
         public Guid? DestAccountId { get; set; }
         public Guid InitiatedBy { get; set; }

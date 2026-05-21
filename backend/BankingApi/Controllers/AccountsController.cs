@@ -1,356 +1,333 @@
-using System.Net;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text.Json;
 using BankingApi.Data;
-using BankingApi.DTOs;
 using BankingApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace BankingApi.Controllers;
-
-[ApiController]
-[Route("api/accounts")]
-[Authorize]
-public class AccountsController : ControllerBase
+namespace BankingApi.Controllers
 {
-    private static readonly HashSet<string> StaffRoles = new(StringComparer.OrdinalIgnoreCase)
+    [ApiController]
+    [Route("api/accounts")]
+    [Authorize] 
+    public class AccountsController : ControllerBase
     {
-        "teller",
-        "manager",
-        "admin"
-    };
+        private readonly BankingDbContext _db;
 
-    private readonly BankingDbContext _db;
+        private const int DefaultPageSize = 20;
+        private const int MaxPageSize = 100;
+        private static readonly Guid SystemActorId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-    public AccountsController(BankingDbContext db)
-    {
-        _db = db;
-    }
+        private static readonly string[] AllowedAccountTypes = { "checking", "savings" };
+        private static readonly string[] AllowedCurrencies = { "USD", "EUR", "GBP" };
 
-    /// <summary>
-    /// List accounts for the authenticated customer, or for another user when caller is teller+.
-    /// </summary>
-    [HttpGet]
-    public async Task<ActionResult<AccountListResponse>> ListAccounts([FromQuery] Guid? userId)
-    {
-        if (!TryGetCurrentUserId(out var currentUserId))
+        public AccountsController(BankingDbContext db)
         {
-            return Unauthorized(new { message = "Invalid or missing authentication token." });
+            _db = db;
         }
 
-        IQueryable<Account> query = _db.Accounts.AsNoTracking();
-
-        if (IsStaff())
+        [HttpGet]
+        public async Task<IActionResult> GetAccounts(
+            [FromQuery] Guid? userId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = DefaultPageSize,
+            CancellationToken cancellationToken = default)
         {
-            if (userId.HasValue)
+            var currentUserRole = GetCurrentUserRole();
+
+            if (!TryGetCurrentUserId(out var currentUserId) || string.IsNullOrEmpty(currentUserRole))
             {
-                query = query.Where(a => a.UserId == userId.Value);
+                return Unauthorized();
             }
+
+            page = page < 1 ? 1 : page;
+            pageSize = pageSize < 1 ? DefaultPageSize : pageSize > MaxPageSize ? MaxPageSize : pageSize;
+
+            IQueryable<Account> query = _db.Accounts;
+
+            if (currentUserRole is "teller" or "manager" or "admin")
+            {
+                if (userId.HasValue)
+                    query = query.Where(a => a.UserId == userId.Value);
+            }
+            else 
+            {
+                if (userId.HasValue && userId.Value != currentUserId)
+                    return Forbid();
+                query = query.Where(a => a.UserId == currentUserId);
+            }
+
+            var totalItems = await query.CountAsync(cancellationToken);
+            var accounts = await query
+                .OrderByDescending(a => a.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(a => MapToResponse(a))
+                .ToListAsync(cancellationToken);
+
+            return Ok(new { totalItems, page, pageSize, data = accounts });
         }
-        else
+
+        [HttpGet("{accountId}")]
+        public async Task<IActionResult> GetAccountById(Guid accountId, CancellationToken cancellationToken = default)
         {
-            if (userId.HasValue && userId.Value != currentUserId)
+            if (!TryGetCurrentUserId(out var currentUserId))
+                return Unauthorized();
+
+            var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountId == accountId, cancellationToken);
+            if (account == null)
+                return NotFound(new { message = "Account not found." });
+
+            var currentUserRole = GetCurrentUserRole();
+            if (account.UserId != currentUserId &&
+                currentUserRole != "teller" && currentUserRole != "manager" && currentUserRole != "admin")
             {
                 return Forbid();
             }
 
-            query = query.Where(a => a.UserId == currentUserId);
-        }
-
-        var accounts = await query
-            .OrderBy(a => a.OpenedAt)
-            .ToListAsync();
-
-        return Ok(new AccountListResponse
-        {
-            Accounts = accounts.Select(MapToResponse).ToList()
-        });
-    }
-
-    /// <summary>
-    /// Resolve an account by number for transfers (minimal details, any authenticated user).
-    /// </summary>
-    [HttpGet("lookup/{accountNumber}")]
-    public async Task<ActionResult<AccountLookupResponse>> LookupAccount(string accountNumber)
-    {
-        var normalized = accountNumber.Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            return BadRequest(new { message = "Account number is required." });
-        }
-
-        var account = await _db.Accounts
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.AccountNumber == normalized);
-
-        if (account is null)
-        {
-            return NotFound(new { message = "Account not found." });
-        }
-
-        return Ok(new AccountLookupResponse
-        {
-            AccountId = account.AccountId,
-            AccountNumber = account.AccountNumber,
-            AccountType = account.AccountType,
-            Currency = account.Currency,
-            Status = account.Status
-        });
-    }
-
-    /// <summary>
-    /// Account details (balance, status, type). Owner or teller+.
-    /// </summary>
-    [HttpGet("{accountId:guid}")]
-    public async Task<ActionResult<AccountResponse>> GetAccount(Guid accountId)
-    {
-        if (!TryGetCurrentUserId(out var currentUserId))
-        {
-            return Unauthorized(new { message = "Invalid or missing authentication token." });
-        }
-
-        var account = await _db.Accounts
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.AccountId == accountId);
-
-        if (account is null)
-        {
-            return NotFound(new { message = "Account not found." });
-        }
-
-        if (!CanAccessAccount(account, currentUserId))
-        {
-            return Forbid();
-        }
-
-        return Ok(MapToResponse(account));
-    }
-
-    /// <summary>
-    /// Open a new account for a user. Teller, manager, or admin only.
-    /// </summary>
-    [HttpPost]
-    [Authorize(Policy = "TellerOrAbove")]
-    public async Task<ActionResult<AccountResponse>> CreateAccount(CreateAccountRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return ValidationProblem(ModelState);
-        }
-
-        if (!TryGetCurrentUserId(out var performedBy))
-        {
-            return Unauthorized(new { message = "Invalid or missing authentication token." });
-        }
-
-        var owner = await _db.Users.FindAsync(request.UserId);
-        if (owner is null)
-        {
-            return BadRequest(new { message = "User not found." });
-        }
-
-        if (!owner.IsActive)
-        {
-            return BadRequest(new { message = "Cannot open an account for a disabled user." });
-        }
-
-        var accountType = request.AccountType.Trim().ToLowerInvariant();
-        var currency = request.Currency.Trim().ToUpperInvariant();
-
-        if (request.InterestRate.HasValue &&
-            accountType is not ("savings" or "fixed_deposit" or "loan"))
-        {
-            return BadRequest(new { message = "Interest rate applies only to savings, fixed_deposit, or loan accounts." });
-        }
-
-        var accountNumber = await GenerateUniqueAccountNumberAsync();
-        var now = DateTime.UtcNow;
-
-        var account = new Account
-        {
-            AccountId = Guid.NewGuid(),
-            UserId = request.UserId,
-            AccountNumber = accountNumber,
-            AccountType = accountType,
-            Currency = currency,
-            Balance = 0m,
-            AvailableBalance = 0m,
-            InterestRate = request.InterestRate,
-            Status = "active",
-            OpenedAt = now,
-            ClosedAt = null,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
-
-        _db.Accounts.Add(account);
-        LogAccountOpened(account, owner.Email, performedBy, now);
-        await _db.SaveChangesAsync();
-
-        return CreatedAtAction(
-            nameof(GetAccount),
-            new { accountId = account.AccountId },
-            MapToResponse(account));
-    }
-
-    [HttpPatch("{accountId:guid}/freeze")]
-    [Authorize(Policy = "ManagerOrAbove")]
-    public async Task<ActionResult<AccountResponse>> FreezeAccount(Guid accountId)
-    {
-        return await UpdateAccountStatusAsync(accountId, "frozen", requireZeroBalance: false);
-    }
-
-    [HttpPatch("{accountId:guid}/close")]
-    [Authorize(Policy = "ManagerOrAbove")]
-    public async Task<ActionResult<AccountResponse>> CloseAccount(Guid accountId)
-    {
-        return await UpdateAccountStatusAsync(accountId, "closed", requireZeroBalance: true);
-    }
-
-    private async Task<ActionResult<AccountResponse>> UpdateAccountStatusAsync(
-        Guid accountId,
-        string newStatus,
-        bool requireZeroBalance)
-    {
-        if (!TryGetCurrentUserId(out var performedBy))
-        {
-            return Unauthorized(new { message = "Invalid or missing authentication token." });
-        }
-
-        var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountId == accountId);
-        if (account is null)
-        {
-            return NotFound(new { message = "Account not found." });
-        }
-
-        if (string.Equals(account.Status, newStatus, StringComparison.OrdinalIgnoreCase))
-        {
             return Ok(MapToResponse(account));
         }
 
-        if (requireZeroBalance && account.Balance != 0)
+        [HttpPost]
+        [Authorize(Roles = "teller,manager,admin")]
+        public async Task<IActionResult> CreateAccount([FromBody] CreateAccountRequest request, CancellationToken cancellationToken = default)
         {
-            return BadRequest(new { message = "Account balance must be zero before closing." });
-        }
+            if (!ModelState.IsValid)
+                return ValidationProblem(ModelState);
 
-        if (string.Equals(account.Status, "closed", StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest(new { message = "Closed accounts cannot be modified." });
-        }
+            var typeNormalized = request.AccountType.Trim().ToLowerInvariant();
+            if (!AllowedAccountTypes.Contains(typeNormalized))
+                return BadRequest(new { message = $"Invalid account type. Allowed: {string.Join(", ", AllowedAccountTypes)}" });
 
-        var previousStatus = account.Status;
-        var now = DateTime.UtcNow;
+            var currencyNormalized = (request.Currency ?? "USD").Trim().ToUpperInvariant();
+            if (!AllowedCurrencies.Contains(currencyNormalized))
+                return BadRequest(new { message = $"Unsupported currency. Allowed: {string.Join(", ", AllowedCurrencies)}" });
 
-        account.Status = newStatus;
-        account.UpdatedAt = now;
-        if (newStatus == "closed")
-        {
-            account.ClosedAt = now;
-        }
+            if (!await _db.Users.AnyAsync(u => u.UserId == request.UserId, cancellationToken))
+                return BadRequest(new { message = "Target user does not exist." });
 
-        var auditEntry = new AuditLogEntry
-        {
-            EventType = "account",
-            EntityType = "account",
-            EntityId = account.AccountId.ToString(),
-            Action = "update",
-            PerformedBy = performedBy,
-            IpAddress = GetClientIpAddress(),
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            OldValues = JsonSerializer.SerializeToDocument(new { status = previousStatus }),
-            NewValues = JsonSerializer.SerializeToDocument(new { status = newStatus, account.AccountNumber }),
-            CreatedAt = now
-        };
+            var alreadyHasType = await _db.Accounts.AnyAsync(a => a.UserId == request.UserId && a.AccountType == typeNormalized && a.Status == "active", cancellationToken);
+            if (alreadyHasType)
+                return BadRequest(new { message = $"User already holds an active '{typeNormalized}' account." });
 
-        _db.AuditLogEntries.Add(auditEntry);
-        await _db.SaveChangesAsync();
+            var now = DateTime.UtcNow;
+            var accountNumber = await GenerateUniqueAccountNumberAsync(cancellationToken);
 
-        return Ok(MapToResponse(account));
-    }
-
-    private async Task<string> GenerateUniqueAccountNumberAsync()
-    {
-        for (var attempt = 0; attempt < 10; attempt++)
-        {
-            var suffix = Random.Shared.Next(10000000, 99999999);
-            var candidate = $"SB{DateTime.UtcNow:yyMM}{suffix}";
-
-            if (!await _db.Accounts.AnyAsync(a => a.AccountNumber == candidate))
+            var newAccount = new Account
             {
-                return candidate;
+                AccountId = Guid.NewGuid(),
+                UserId = request.UserId,
+                AccountNumber = accountNumber,
+                AccountType = typeNormalized,
+                Currency = currencyNormalized,
+                Balance = 0m,
+                AvailableBalance = 0m,
+                Status = "active",
+                OpenedAt = now,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+
+            _db.Accounts.Add(newAccount);
+
+            var auditEntry = new AuditLogEntry
+            {
+                EventType = "account_management",
+                EntityType = nameof(Account),
+                EntityId = newAccount.AccountId.ToString(),
+                Action = "create",
+                PerformedBy = TryGetCurrentUserId(out var actorId) ? actorId : (Guid?)SystemActorId,
+                IpAddress = HttpContext.Connection.RemoteIpAddress,
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                AdditionalInfo = JsonSerializer.SerializeToDocument(new
+                {
+                    newAccount.AccountNumber,
+                    newAccount.AccountType,
+                    ClientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+                }),
+                CreatedAt = now
+            };
+            _db.AuditLogEntries.Add(auditEntry);
+
+            try
+            {
+                await _db.SaveChangesAsync(cancellationToken);
             }
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+            {
+                return StatusCode(StatusCodes.Status409Conflict, new { message = "Account number generation conflict. Please retry your request safely." });
+            }
+
+            return StatusCode(StatusCodes.Status201Created, MapToResponse(newAccount));
         }
 
-        throw new InvalidOperationException("Unable to generate a unique account number.");
-    }
-
-    private void LogAccountOpened(Account account, string ownerEmail, Guid performedBy, DateTime openedAt)
-    {
-        var auditEntry = new AuditLogEntry
+        [HttpPatch("{accountId}/freeze")]
+        [Authorize(Roles = "manager,admin")]
+        public async Task<IActionResult> FreezeAccount(Guid accountId, CancellationToken cancellationToken = default)
         {
-            EventType = "account",
-            EntityType = "account",
-            EntityId = account.AccountId.ToString(),
-            Action = "create",
-            PerformedBy = performedBy,
-            IpAddress = GetClientIpAddress(),
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            NewValues = JsonSerializer.SerializeToDocument(new
+            var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountId == accountId, cancellationToken);
+            if (account == null)
+                return NotFound(new { message = "Account not found." });
+
+            if (account.Status == "closed")
+                return BadRequest(new { message = "Cannot freeze a closed account." });
+            if (account.Status == "frozen")
+                return BadRequest(new { message = "Account is already frozen." });
+
+            var oldStatus = account.Status;
+            var now = DateTime.UtcNow;
+
+            account.Status = "frozen";
+            account.UpdatedAt = now;
+
+            var auditEntry = new AuditLogEntry
             {
-                account.AccountNumber,
-                account.AccountType,
-                account.Currency,
-                account.UserId,
-                ownerEmail,
-                openedAt
-            }),
-            CreatedAt = openedAt
+                EventType = "account_management",
+                EntityType = nameof(Account),
+                EntityId = account.AccountId.ToString(),
+                Action = "freeze",
+                PerformedBy = TryGetCurrentUserId(out var actorId) ? actorId : (Guid?)SystemActorId,
+                IpAddress = HttpContext.Connection.RemoteIpAddress,
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                OldValues = JsonSerializer.SerializeToDocument(new { status = oldStatus }),
+                NewValues = JsonSerializer.SerializeToDocument(new { status = "frozen" }),
+                CreatedAt = now
+            };
+            _db.AuditLogEntries.Add(auditEntry);
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return Ok(new { message = "Account frozen successfully.", accountId = account.AccountId });
+        }
+
+        [HttpPatch("{accountId}/close")]
+        [Authorize(Roles = "manager,admin")]
+        public async Task<IActionResult> CloseAccount(Guid accountId, CancellationToken cancellationToken = default)
+        {
+            var account = await _db.Accounts.FirstOrDefaultAsync(a => a.AccountId == accountId, cancellationToken);
+            if (account == null)
+                return NotFound(new { message = "Account not found." });
+
+            if (account.Status == "closed")
+                return BadRequest(new { message = "Account is already closed." });
+            if (account.Status == "frozen")
+                return BadRequest(new { message = "Cannot close a frozen account. Unfreeze it first." });
+            if (account.Balance != 0m)
+                return BadRequest(new { message = "Cannot close account with remaining balance." });
+
+            var oldStatus = account.Status;
+            var now = DateTime.UtcNow;
+
+            account.Status = "closed";
+            account.ClosedAt = now;
+            account.UpdatedAt = now;
+
+            var auditEntry = new AuditLogEntry
+            {
+                EventType = "account_management",
+                EntityType = nameof(Account),
+                EntityId = account.AccountId.ToString(),
+                Action = "close",
+                PerformedBy = TryGetCurrentUserId(out var actorId) ? actorId : (Guid?)SystemActorId,
+                IpAddress = HttpContext.Connection.RemoteIpAddress,
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                OldValues = JsonSerializer.SerializeToDocument(new { status = oldStatus }),
+                NewValues = JsonSerializer.SerializeToDocument(new { status = "closed", closedAt = now }),
+                CreatedAt = now
+            };
+            _db.AuditLogEntries.Add(auditEntry);
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return Ok(new { message = "Account closed successfully.", accountId = account.AccountId });
+        }
+
+        #region Internal Helper Routines
+
+        private bool TryGetCurrentUserId(out Guid userId)
+        {
+            userId = Guid.Empty;
+            var claimValue = User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                             User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+            return Guid.TryParse(claimValue, out userId);
+        }
+
+        private string GetCurrentUserRole() => User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+
+        private static string GenerateSecureAccountNumber()
+        {
+            var bytes = new byte[8];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(bytes);
+            }
+            ulong val = BitConverter.ToUInt64(bytes, 0) % 900_000_000_000L + 100_000_000_000L;
+            return val.ToString();
+        }
+
+        private async Task<string> GenerateUniqueAccountNumberAsync(CancellationToken cancellationToken, int maxRetries = 3)
+        {
+            for (int attempt = 0; attempt < maxRetries; attempt++)
+            {
+                var number = GenerateSecureAccountNumber();
+                var exists = await _db.Accounts.AnyAsync(a => a.AccountNumber == number, cancellationToken);
+                if (!exists)
+                    return number;
+            }
+            throw new InvalidOperationException("Unable to generate a unique account number after multiple attempts.");
+        }
+
+        private static bool IsUniqueConstraintViolation(DbUpdateException ex)
+        {
+            return ex.InnerException?.Message.Contains("UNIQUE") == true ||
+                   ex.InnerException?.Message.Contains("2627") == true ||
+                   ex.InnerException?.Message.Contains("23505") == true;
+        }
+
+        private static AccountResponse MapToResponse(Account account) => new()
+        {
+            AccountId = account.AccountId,
+            UserId = account.UserId,
+            AccountNumber = account.AccountNumber,
+            AccountType = account.AccountType,
+            Currency = account.Currency,
+            Balance = account.Balance,
+            AvailableBalance = account.AvailableBalance,
+            Status = account.Status,
+            OpenedAt = account.OpenedAt
         };
 
-        _db.AuditLogEntries.Add(auditEntry);
+        #endregion
     }
 
-    private IPAddress? GetClientIpAddress()
+    #region Data Transfer Objects (DTOs)
+
+    public class CreateAccountRequest
     {
-        return HttpContext.Connection.RemoteIpAddress;
+        [Required]
+        public Guid UserId { get; set; }
+
+        [Required]
+        [StringLength(20, MinimumLength = 3)]
+        public string AccountType { get; set; } = string.Empty;
+
+        [StringLength(3, MinimumLength = 3)]
+        public string? Currency { get; set; }
     }
 
-    private bool CanAccessAccount(Account account, Guid currentUserId)
+    public class AccountResponse
     {
-        return account.UserId == currentUserId || IsStaff();
+        public Guid AccountId { get; set; }
+        public Guid UserId { get; set; }
+        public string AccountNumber { get; set; } = string.Empty;
+        public string AccountType { get; set; } = string.Empty;
+        public string Currency { get; set; } = "USD";
+        public decimal Balance { get; set; }
+        public decimal AvailableBalance { get; set; }
+        public string Status { get; set; } = "active";
+        public DateTime OpenedAt { get; set; }
     }
 
-    private bool TryGetCurrentUserId(out Guid userId)
-    {
-        userId = default;
-
-        var subject = User.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? User.FindFirstValue(ClaimTypes.Name)
-            ?? User.FindFirstValue("sub");
-
-        return Guid.TryParse(subject, out userId);
-    }
-
-    private bool IsStaff()
-    {
-        var role = User.FindFirstValue(ClaimTypes.Role);
-        return role is not null && StaffRoles.Contains(role);
-    }
-
-    private static AccountResponse MapToResponse(Account account) => new()
-    {
-        AccountId = account.AccountId,
-        UserId = account.UserId,
-        AccountNumber = account.AccountNumber,
-        AccountType = account.AccountType,
-        Currency = account.Currency,
-        Balance = account.Balance,
-        AvailableBalance = account.AvailableBalance,
-        InterestRate = account.InterestRate,
-        Status = account.Status,
-        OpenedAt = account.OpenedAt,
-        ClosedAt = account.ClosedAt
-    };
+    #endregion
 }
