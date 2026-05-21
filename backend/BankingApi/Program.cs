@@ -82,7 +82,8 @@ if (string.IsNullOrWhiteSpace(connectionString))
 if (!TryGetConnectionHost(connectionString, out var dbHost))
 {
     throw new InvalidOperationException(
-        "ConnectionStrings__neondb must include Host=your-project.neon.tech");
+        "ConnectionStrings__neondb must use Neon's .NET connection string (Host=ep-....neon.tech;Database=...;Username=...;Password=...). "
+        + "If you only have a postgresql:// URL, set DATABASE_URL instead, or paste the .NET string from Neon → Connection details → .NET.");
 }
 
 var envFilePath = FindEnvFilePath();
@@ -243,20 +244,31 @@ static byte[] TryGetSigningKeyBytes(string secret)
 static string? ResolveDatabaseConnectionString(IConfiguration configuration)
 {
     var connectionString = configuration.GetConnectionString("neondb");
-
     if (!string.IsNullOrWhiteSpace(connectionString))
     {
-        return connectionString;
+        return NormalizeDatabaseConnectionString(connectionString);
     }
 
     var databaseUrl = configuration["DATABASE_URL"];
     if (!string.IsNullOrWhiteSpace(databaseUrl)
         && !databaseUrl.Contains("xxxxx", StringComparison.OrdinalIgnoreCase))
     {
-        return ConvertDatabaseUrlToNpgsql(databaseUrl);
+        return NormalizeDatabaseConnectionString(databaseUrl);
     }
 
     return null;
+}
+
+static string? NormalizeDatabaseConnectionString(string value)
+{
+    var trimmed = value.Trim();
+    if (trimmed.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase)
+        || trimmed.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+    {
+        return ConvertDatabaseUrlToNpgsql(trimmed);
+    }
+
+    return trimmed;
 }
 
 static string? ConvertDatabaseUrlToNpgsql(string databaseUrl)
@@ -285,7 +297,8 @@ static bool TryGetConnectionHost(string connectionString, out string host)
     {
         var parts = segment.Split('=', 2, StringSplitOptions.TrimEntries);
         if (parts.Length == 2
-            && parts[0].Equals("Host", StringComparison.OrdinalIgnoreCase)
+            && (parts[0].Equals("Host", StringComparison.OrdinalIgnoreCase)
+                || parts[0].Equals("Server", StringComparison.OrdinalIgnoreCase))
             && !string.IsNullOrWhiteSpace(parts[1]))
         {
             host = parts[1];
