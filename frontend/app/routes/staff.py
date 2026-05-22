@@ -3,6 +3,7 @@ from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
+from app.api_errors import handle_api_error
 from app.services.backend_api import (
     BackendApiError,
     close_account,
@@ -63,7 +64,7 @@ def open_account():
             )
             return redirect(url_for("staff.open_account"))
         except BackendApiError as exc:
-            flash(exc.message, "danger")
+            handle_api_error(exc)
 
     return render_template("staff/open_account.html", form=form)
 
@@ -73,10 +74,12 @@ def open_account():
 def deposit_funds():
     access_token = session.get("access_token")
     accounts = []
+    accounts_unavailable = False
     try:
         accounts = list_accounts(access_token)
     except BackendApiError as exc:
-        flash(exc.message, "danger")
+        accounts_unavailable = True
+        handle_api_error(exc, on_get=True)
 
     if request.method == "POST":
         account_id = request.form.get("account_id", "").strip()
@@ -95,9 +98,13 @@ def deposit_funds():
                 )
                 return redirect(url_for("staff.deposit_funds"))
             except BackendApiError as exc:
-                flash(exc.message, "danger")
+                handle_api_error(exc)
 
-    return render_template("staff/deposit.html", accounts=accounts)
+    return render_template(
+        "staff/deposit.html",
+        accounts=accounts,
+        accounts_unavailable=accounts_unavailable,
+    )
 
 
 @staff_bp.route("/withdrawal", methods=["GET", "POST"])
@@ -105,10 +112,12 @@ def deposit_funds():
 def withdraw_funds():
     access_token = session.get("access_token")
     accounts = []
+    accounts_unavailable = False
     try:
         accounts = list_accounts(access_token)
     except BackendApiError as exc:
-        flash(exc.message, "danger")
+        accounts_unavailable = True
+        handle_api_error(exc, on_get=True)
 
     if request.method == "POST":
         account_id = request.form.get("account_id", "").strip()
@@ -127,9 +136,13 @@ def withdraw_funds():
                 )
                 return redirect(url_for("staff.withdraw_funds"))
             except BackendApiError as exc:
-                flash(exc.message, "danger")
+                handle_api_error(exc)
 
-    return render_template("staff/withdrawal.html", accounts=accounts)
+    return render_template(
+        "staff/withdrawal.html",
+        accounts=accounts,
+        accounts_unavailable=accounts_unavailable,
+    )
 
 
 def manager_required(view):
@@ -151,10 +164,12 @@ def manager_required(view):
 def manage_accounts():
     access_token = session.get("access_token")
     accounts = []
+    accounts_unavailable = False
     try:
         accounts = list_accounts(access_token)
     except BackendApiError as exc:
-        flash(exc.message, "danger")
+        accounts_unavailable = True
+        handle_api_error(exc, on_get=True)
 
     if request.method == "POST":
         account_id = request.form.get("account_id", "").strip()
@@ -167,16 +182,20 @@ def manage_accounts():
                 result = freeze_account(account_id, access_token)
                 flash(f"Account {result.get('accountNumber')} is now {result.get('status')}.", "success")
             except BackendApiError as exc:
-                flash(exc.message, "danger")
+                handle_api_error(exc)
         elif action == "close":
             try:
                 result = close_account(account_id, access_token)
                 flash(f"Account {result.get('accountNumber')} is now {result.get('status')}.", "success")
             except BackendApiError as exc:
-                flash(exc.message, "danger")
+                handle_api_error(exc)
         else:
             flash("Unknown action.", "danger")
 
         return redirect(url_for("staff.manage_accounts"))
 
-    return render_template("staff/manage_accounts.html", accounts=accounts)
+    return render_template(
+        "staff/manage_accounts.html",
+        accounts=accounts,
+        accounts_unavailable=accounts_unavailable,
+    )

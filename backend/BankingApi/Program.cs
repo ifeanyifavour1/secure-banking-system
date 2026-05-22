@@ -184,7 +184,8 @@ else
     app.UseHsts();
 }
 
-if (!app.Environment.IsDevelopment())
+// Render terminates TLS at the edge; the container listens on HTTP only (PORT env var).
+if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(renderPort))
 {
     app.UseHttpsRedirection();
 }
@@ -193,6 +194,8 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAuditLogging();
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapGet("/health/db", async (BankingDbContext db) =>
 {

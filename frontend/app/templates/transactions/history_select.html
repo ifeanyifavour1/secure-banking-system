@@ -7,7 +7,13 @@
 {{ page_header("Account statements", "Select an account to view transaction history.") }}
 
 <section class="card">
-  {% if accounts %}
+  {% if accounts_load_failed %}
+  {{ empty_state(
+    api_status_message or "Statements are unavailable because account data could not be loaded.",
+    none,
+    none
+  ) }}
+  {% elif accounts %}
   <ul class="link-list">
     {% for a in accounts %}
     <li>

@@ -10,7 +10,7 @@ services:
     rootDir: backend/BankingApi
     dockerfilePath: Dockerfile
     plan: free
-    healthCheckPath: /health/db
+    healthCheckPath: /health
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production

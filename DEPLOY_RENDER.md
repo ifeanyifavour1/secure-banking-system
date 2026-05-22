@@ -48,7 +48,7 @@ Browser → banking-frontend.onrender.com (Flask)
 | Root Directory | `backend/BankingApi` |
 | Environment | Docker |
 | Dockerfile | `Dockerfile` |
-| Health Check | `/health/db` |
+| Health Check | `/health` (liveness); use `/health/db` to verify Neon |
 
 **Environment variables:** `ASPNETCORE_ENVIRONMENT=Production`, plus secrets above.  
 **Frontend__Url:** `https://<your-frontend>.onrender.com`
@@ -86,7 +86,7 @@ Or register via the UI. Demo emails: `alice@demo.bank`, `bob@demo.bank` (passwor
 |-------|-----|
 | Login shows database error | Check `ConnectionStrings__neondb` on API service; test `/health/db` |
 | CORS / API errors from UI | Set `Frontend__Url` on API to exact frontend URL (with `https://`) |
-| 502 on first load | Free tier cold start — wait 30–60s and refresh |
+| 502 Bad Gateway | Open **Logs** on the service: usually missing `ConnectionStrings__neondb` or `Jwt__Secret` on API, or wrong Blueprint root directory. Free tier cold start — wait 30–60s and refresh |
 | Build fails on API | Ensure Root Directory is `backend/BankingApi` |
 
 ## 7. Local vs Render

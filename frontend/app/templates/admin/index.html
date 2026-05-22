@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import page_header %}
+{% from "macros.html" import page_header, api_form_class %}
 {% block title %}Admin · Secure Banking{% endblock %}
 {% block container_class %}container-wide{% endblock %}
 
@@ -9,7 +9,7 @@
 <section class="card">
   <p class="hint">Promote users to teller, manager, or admin. Sign out and back in after changing your own role so the JWT updates.</p>
 
-  <form method="post" action="{{ url_for('admin.assign_role') }}" novalidate class="form-stack">
+  <form method="post" action="{{ url_for('admin.assign_role') }}" novalidate class="form-stack{{ api_form_class() }}">
     {{ form.hidden_tag() }}
 
     <label for="email">User email</label>

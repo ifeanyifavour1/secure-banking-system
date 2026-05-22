@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import page_header, empty_state %}
+{% from "macros.html" import page_header, empty_state, api_form_class %}
 {% block title %}Transfer · Secure Banking{% endblock %}
 {% block container_class %}container-wide{% endblock %}
 
@@ -7,7 +7,13 @@
 {{ page_header("Transfer money", "Move funds between your accounts or pay another customer by account number.") }}
 
 <section class="card">
-  {% if not has_accounts %}
+  {% if accounts_load_failed %}
+  {{ empty_state(
+    api_status_message or "Transfers are unavailable because account data could not be loaded.",
+    none,
+    none
+  ) }}
+  {% elif not has_accounts %}
   {{ empty_state(
     "You need at least one active account to transfer.",
     url_for('staff.open_account') if is_staff else none,
@@ -15,7 +21,7 @@
   ) }}
   <p class="card-footer"><a href="{{ url_for('dashboard.index') }}">← Dashboard</a></p>
   {% else %}
-  <form method="post" novalidate id="transfer-form" class="form-stack">
+  <form method="post" novalidate id="transfer-form" class="form-stack{{ api_form_class() }}">
     {{ form.hidden_tag() }}
 
     <label for="source_account_id">From account</label>

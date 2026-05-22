@@ -1016,3 +1016,42 @@ select.input {
     padding: 1.35rem 1.25rem;
   }
 }
+
+/* API offline fallbacks */
+.api-status-banner {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid #e8c878;
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.api-status-banner-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.api-status-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.api-status-message {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.api-status-retry {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.form-offline {
+  opacity: 0.6;
+  pointer-events: none;
+}
