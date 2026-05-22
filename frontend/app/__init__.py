@@ -10,7 +10,7 @@ from app.routes.staff import staff_bp
 from app.routes.transactions import transactions_bp
 
 STAFF_ROLES = frozenset({"teller", "manager", "admin"})
-from app.security.headers import init_security
+from app.security import init_app_security
 
 
 def create_app() -> Flask:
@@ -18,10 +18,14 @@ def create_app() -> Flask:
     app.config.from_object(Config)
 
     CSRFProtect(app)
-    init_security(app)
+    init_app_security(app)
 
     if not app.debug:
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_for=1)
+
+    @app.route("/health")
+    def health():
+        return "ok", 200
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
@@ -50,6 +54,6 @@ def create_app() -> Flask:
 
         if session.get("access_token"):
             return redirect(url_for("dashboard.index"))
-        return redirect(url_for("auth.login"))
+        return redirect(url_for("auth.portal_hub"))
 
     return app

@@ -53,16 +53,18 @@ Browser → banking-frontend.onrender.com (Flask)
 **Environment variables:** `ASPNETCORE_ENVIRONMENT=Production`, plus secrets above.  
 **Frontend__Url:** `https://<your-frontend>.onrender.com`
 
-### banking-frontend (Python)
+### banking-frontend (Docker: nginx + Gunicorn + Flask)
 
 | Setting | Value |
 |---------|--------|
 | Root Directory | `frontend` |
-| Build | `pip install -r requirements.txt` |
-| Start | `gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 run:app` |
-| Python version | 3.12 |
+| Dockerfile | `Dockerfile` |
+| Health Check | `/health` |
+| Edge | nginx rate-limits and blocks probes; Gunicorn on `127.0.0.1:8001` only |
 
-**Environment variables:** `FLASK_ENV=production`, `API_BASE_URL=https://<your-api>.onrender.com`, plus secrets above.
+**Environment variables:** `FLASK_ENV=production`, `API_BASE_URL=https://<your-api>.onrender.com`, plus secrets above.  
+Optional: `ALLOWED_HOSTS=your-frontend.onrender.com`, `RATELIMIT_DEFAULT`, `RATELIMIT_STORAGE_URI` (Redis for multi-instance).  
+See `frontend/SECURITY.md` for limits and toggles.
 
 ## 4. Verify before class
 
@@ -87,6 +89,7 @@ Or register via the UI. Demo emails: `alice@demo.bank`, `bob@demo.bank` (passwor
 | Login shows database error | Check `ConnectionStrings__neondb` on API service; test `/health/db` |
 | CORS / API errors from UI | Set `Frontend__Url` on API to exact frontend URL (with `https://`) |
 | 502 Bad Gateway | Open **Logs** on the service: usually missing `ConnectionStrings__neondb` or `Jwt__Secret` on API, or wrong Blueprint root directory. Free tier cold start — wait 30–60s and refresh |
+| 429 Too Many Requests | nginx or Flask-Limiter; wait a minute or lower traffic during demos. Auth endpoints are capped (~8/min per IP) |
 | Build fails on API | Ensure Root Directory is `backend/BankingApi` |
 
 ## 7. Local vs Render

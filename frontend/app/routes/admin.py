@@ -13,8 +13,8 @@ def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get("access_token"):
-            flash("Please sign in first.", "warning")
-            return redirect(url_for("auth.login"))
+            flash("Please sign in to administration.", "warning")
+            return redirect(url_for("auth.admin_login"))
         if session.get("role") != "admin":
             flash("Admin access required.", "danger")
             return redirect(url_for("dashboard.index"))
@@ -41,7 +41,7 @@ def assign_role():
     access_token = session.get("access_token")
     if not access_token:
         flash("Please sign in again.", "warning")
-        return redirect(url_for("auth.login"))
+        return redirect(url_for("auth.admin_login"))
 
     try:
         result = set_user_role(

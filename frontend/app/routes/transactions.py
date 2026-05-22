@@ -1,9 +1,8 @@
 from decimal import Decimal, InvalidOperation
-from functools import wraps
-
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from app.api_errors import handle_api_error
+from app.auth_guards import login_required
 from app.services.backend_api import (
     BackendApiError,
     get_transaction_history,
@@ -14,17 +13,6 @@ from app.services.backend_api import transfer as api_transfer
 from app.validation.forms import TransferForm
 
 transactions_bp = Blueprint("transactions", __name__)
-
-
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("access_token"):
-            flash("Please sign in first.", "warning")
-            return redirect(url_for("auth.login"))
-        return view(*args, **kwargs)
-
-    return wrapped
 
 
 def _active_account_choices(accounts: list[dict]) -> list[tuple[str, str]]:

@@ -1,8 +1,12 @@
-# Security package — HTTP security hardening for the Flask frontend
-#
-# This package contains:
-# - headers.py: Flask-Talisman configuration for HSTS, CSP, X-Frame-Options,
-#               X-Content-Type-Options, and HTTPS enforcement
-#
-# The init_security(app) function from headers.py should be called
-# during app factory setup in app/__init__.py
+from flask import Flask
+
+from app.security.firewall import init_firewall
+from app.security.headers import init_security
+from app.security.limiter import init_limiter
+
+
+def init_app_security(app: Flask) -> None:
+    """Headers (Talisman), edge firewall middleware, and Flask-Limiter."""
+    init_security(app)
+    init_firewall(app)
+    init_limiter(app)

@@ -26,8 +26,8 @@ def staff_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get("access_token"):
-            flash("Please sign in first.", "warning")
-            return redirect(url_for("auth.login"))
+            flash("Please sign in to the branch portal.", "warning")
+            return redirect(url_for("auth.staff_login"))
         if session.get("role") not in STAFF_ROLES:
             flash("Teller access or above is required.", "danger")
             return redirect(url_for("dashboard.index"))
@@ -149,8 +149,8 @@ def manager_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get("access_token"):
-            flash("Please sign in first.", "warning")
-            return redirect(url_for("auth.login"))
+            flash("Please sign in to the branch portal.", "warning")
+            return redirect(url_for("auth.staff_login"))
         if session.get("role") not in MANAGER_ROLES:
             flash("Manager access or above is required.", "danger")
             return redirect(url_for("dashboard.index"))

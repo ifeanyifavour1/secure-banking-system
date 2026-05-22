@@ -20,7 +20,15 @@ class LoginForm(FlaskForm):
         validators=[Optional(), Length(min=6, max=6)],
         description="Required only if MFA is enabled on your account.",
     )
-    submit = SubmitField("Sign in")
+    submit = SubmitField("Sign in to online banking")
+
+
+class StaffLoginForm(LoginForm):
+    submit = SubmitField("Sign in to branch portal")
+
+
+class AdminLoginForm(LoginForm):
+    submit = SubmitField("Sign in to administration")
 
 
 class RegisterForm(FlaskForm):

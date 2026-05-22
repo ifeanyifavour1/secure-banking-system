@@ -384,6 +384,109 @@ code {
   border-radius: 2px;
 }
 
+.auth-panel--staff {
+  background: linear-gradient(160deg, #0f3d52 0%, #153456 55%, var(--navy) 100%);
+}
+
+.auth-panel--staff .auth-panel-accent {
+  background: #5eb8d4;
+}
+
+.auth-panel--admin {
+  background: linear-gradient(160deg, #1a1520 0%, var(--navy-deep) 45%, var(--navy) 100%);
+}
+
+.auth-panel--admin .auth-panel-accent {
+  background: var(--gold-light);
+}
+
+.auth-portal-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.auth-portal-switch {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.auth-portal-links p {
+  margin: 0.35rem 0;
+}
+
+/* Sign-in portal hub */
+.portal-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  max-width: 960px;
+  margin: 0 auto 2rem;
+}
+
+.portal-hub-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1.35rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: inherit;
+  text-decoration: none;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.portal-hub-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+  text-decoration: none;
+  color: inherit;
+}
+
+.portal-hub-card h2 {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 1.2rem;
+  color: var(--navy);
+}
+
+.portal-hub-card p {
+  margin: 0;
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.portal-hub-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.portal-hub-cta {
+  margin-top: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.portal-hub-card--customer {
+  border-top: 4px solid var(--accent);
+}
+
+.portal-hub-card--staff {
+  border-top: 4px solid #1a6b8a;
+}
+
+.portal-hub-card--admin {
+  border-top: 4px solid var(--gold);
+}
+
 .auth-panel-list {
   margin: 1.75rem 0 0;
   padding: 0;
@@ -951,6 +1054,10 @@ select.input {
 /* Responsive */
 @media (max-width: 800px) {
   .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-hub-grid {
     grid-template-columns: 1fr;
   }
 
