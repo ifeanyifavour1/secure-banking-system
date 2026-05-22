@@ -18,3 +18,17 @@
   {% endif %}
 </div>
 {% endmacro %}
+
+{% macro api_unavailable_banner() %}
+{% if not api_available %}
+<div class="api-status-banner" role="alert">
+  <div class="api-status-banner-inner">
+    <p class="api-status-title">Banking API unavailable</p>
+    <p class="api-status-message">{{ api_status_message }}</p>
+    <a class="api-status-retry" href="?recheck_api=1">Check again</a>
+  </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro api_form_class() %}{% if not api_available %} form-offline{% endif %}{% endmacro %}

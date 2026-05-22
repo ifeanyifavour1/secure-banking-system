@@ -1,3 +1,4 @@
+{% from "macros.html" import api_unavailable_banner %}
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -79,6 +80,8 @@
             </div>
           {% endif %}
         {% endwith %}
+
+        {{ api_unavailable_banner() }}
 
         {% block content %}{% endblock %}
       </div>

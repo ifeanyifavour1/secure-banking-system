@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import api_form_class %}
 {% block title %}Register · Secure Banking{% endblock %}
 {% block body_class %}layout-auth{% endblock %}
 {% block container_class %}container-narrow{% endblock %}
@@ -26,7 +27,7 @@
       </div>
     {% endif %}
 
-    <form method="post" novalidate class="form-stack">
+    <form method="post" novalidate class="form-stack{{ api_form_class() }}">
       {{ form.hidden_tag() }}
 
       <div class="grid-2">

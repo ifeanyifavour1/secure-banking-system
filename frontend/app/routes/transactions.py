@@ -3,6 +3,7 @@ from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
+from app.api_errors import handle_api_error
 from app.services.backend_api import (
     BackendApiError,
     get_transaction_history,
@@ -61,32 +62,36 @@ def transfer():
     access_token = session.get("access_token")
     form = TransferForm()
 
+    accounts_load_failed = False
     try:
         accounts = list_accounts(access_token) if access_token else []
     except BackendApiError as exc:
         accounts = []
-        flash(exc.message, "danger")
+        accounts_load_failed = True
+        handle_api_error(exc, on_get=True)
 
     choices = _active_account_choices(accounts)
     form.source_account_id.choices = choices if choices else [("", "No active accounts")]
     form.dest_account_id.choices = choices if choices else [("", "No active accounts")]
 
-    if not choices:
+    if accounts_load_failed or not choices:
         return render_template(
             "transactions/transfer.html",
             form=form,
             has_accounts=False,
+            accounts_load_failed=accounts_load_failed,
         )
 
     if form.validate_on_submit():
         try:
             dest_id = _resolve_dest_account_id(form, access_token)
         except BackendApiError as exc:
-            flash(exc.message, "danger")
+            handle_api_error(exc)
             return render_template(
                 "transactions/transfer.html",
                 form=form,
                 has_accounts=True,
+                accounts_load_failed=False,
             )
 
         if not dest_id:
@@ -141,12 +146,13 @@ def transfer():
             )
             return redirect(url_for("dashboard.index"))
         except BackendApiError as exc:
-            flash(exc.message, "danger")
+            handle_api_error(exc)
 
     return render_template(
         "transactions/transfer.html",
         form=form,
         has_accounts=True,
+        accounts_load_failed=False,
     )
 
 
@@ -158,10 +164,18 @@ def history(account_id: str | None = None):
     page = max(1, int(request.args.get("page", 1) or 1))
 
     accounts: list[dict] = []
+    accounts_load_failed = False
     try:
         accounts = list_accounts(access_token)
     except BackendApiError as exc:
-        flash(exc.message, "danger")
+        accounts_load_failed = True
+        handle_api_error(exc, on_get=True)
+        if not account_id:
+            return render_template(
+                "transactions/history_select.html",
+                accounts=[],
+                accounts_load_failed=True,
+            )
         return redirect(url_for("dashboard.index"))
 
     if not account_id:
@@ -173,7 +187,7 @@ def history(account_id: str | None = None):
     try:
         data = get_transaction_history(account_id, access_token, page=page)
     except BackendApiError as exc:
-        flash(exc.message, "danger")
+        handle_api_error(exc, on_get=not account_id)
         return redirect(url_for("dashboard.index"))
 
     account = next((a for a in accounts if a.get("accountId") == account_id), None)

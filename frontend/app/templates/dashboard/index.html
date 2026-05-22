@@ -21,11 +21,11 @@
 <div class="stat-grid">
   <div class="stat-card stat-card-featured">
     <p class="stat-card-label">Total balance</p>
-    <p class="stat-card-value">{{ "%.2f"|format(total_balance) }}</p>
+    <p class="stat-card-value">{% if accounts_unavailable %}—{% else %}{{ "%.2f"|format(total_balance) }}{% endif %}</p>
   </div>
   <div class="stat-card">
     <p class="stat-card-label">Accounts</p>
-    <p class="stat-card-value">{{ account_count }}</p>
+    <p class="stat-card-value">{% if accounts_unavailable %}—{% else %}{{ account_count }}{% endif %}</p>
   </div>
   <div class="stat-card">
     <p class="stat-card-label">Access level</p>
@@ -62,7 +62,13 @@
 
   <div class="card-section">
     <h2>Accounts</h2>
-    {% if accounts %}
+    {% if accounts_unavailable %}
+    {{ empty_state(
+      api_status_message or "Account data could not be loaded because the banking API is unavailable.",
+      none,
+      none
+    ) }}
+    {% elif accounts %}
     <div class="table-wrap">
       <table class="data-table">
         <thead>

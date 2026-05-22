@@ -1,5 +1,6 @@
 from flask import Blueprint, flash, redirect, render_template, session, url_for
 
+from app.api_errors import handle_api_error
 from app.services.backend_api import BackendApiError
 from app.services.backend_api import login as api_login
 from app.services.backend_api import register as api_register
@@ -46,7 +47,7 @@ def login():
             flash("Signed in successfully.", "success")
             return redirect(url_for("dashboard.index"))
         except BackendApiError as exc:
-            flash(exc.message, "danger")
+            handle_api_error(exc)
 
     return render_template("auth/login.html", form=form)
 
@@ -78,7 +79,7 @@ def register():
             flash("Account created. You can sign in now.", "success")
             return redirect(url_for("auth.login"))
         except BackendApiError as exc:
-            flash(exc.message, "danger")
+            handle_api_error(exc)
 
     return render_template("auth/register.html", form=form)
 

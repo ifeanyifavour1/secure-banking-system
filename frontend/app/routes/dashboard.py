@@ -2,6 +2,7 @@ from functools import wraps
 
 from flask import Blueprint, flash, redirect, render_template, session, url_for
 
+from app.api_errors import handle_api_error
 from app.services.backend_api import BackendApiError, list_accounts, refresh
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -22,13 +23,15 @@ def login_required(view):
 @login_required
 def index():
     accounts: list[dict] = []
+    accounts_unavailable = False
     access_token = session.get("access_token")
 
     if access_token:
         try:
             accounts = list_accounts(access_token)
         except BackendApiError as exc:
-            flash(exc.message, "danger")
+            accounts_unavailable = True
+            handle_api_error(exc, on_get=True)
 
     return render_template(
         "dashboard/index.html",
@@ -36,6 +39,7 @@ def index():
         role=session.get("role"),
         user_id=session.get("user_id"),
         accounts=accounts,
+        accounts_unavailable=accounts_unavailable,
     )
 
 
@@ -54,6 +58,6 @@ def refresh_token():
         session["expires_at"] = token_payload.get("expiresAt")
         flash("Access token refreshed.", "success")
     except BackendApiError as exc:
-        flash(exc.message, "danger")
+        handle_api_error(exc)
 
     return redirect(url_for("dashboard.index"))

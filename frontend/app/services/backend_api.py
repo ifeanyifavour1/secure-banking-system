@@ -6,13 +6,21 @@ import requests
 from flask import current_app
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import RequestException
+from requests.exceptions import Timeout as RequestsTimeout
 
 
 class BackendApiError(Exception):
-    def __init__(self, message: str, status_code: int | None = None):
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        *,
+        connection_error: bool = False,
+    ):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        self.connection_error = connection_error
 
 
 def _base_url() -> str:
@@ -23,13 +31,72 @@ def _request_kwargs() -> dict:
     return {"timeout": 30, "verify": current_app.config.get("API_VERIFY_SSL", True)}
 
 
+def _is_production() -> bool:
+    try:
+        return current_app.config.get("ENV") == "production"
+    except RuntimeError:
+        return False
+
+
 def _connection_error_message() -> str:
     base = _base_url()
+    if _is_production():
+        return (
+            f"The banking API at {base} is not responding. "
+            "If you use Render’s free tier, the API may be waking up—wait about a minute and try again. "
+            "If the problem persists, check the API service logs and environment variables in the Render dashboard."
+        )
     return (
         f"Cannot reach the banking API at {base}. "
         "Start the API with: dotnet run --launch-profile http "
         "(from backend/BankingApi, listens on http://localhost:5285). "
         "Set API_BASE_URL=http://localhost:5285 in project/.env and restart Flask."
+    )
+
+
+def _timeout_error_message() -> str:
+    base = _base_url()
+    return (
+        f"The banking API at {base} did not respond in time. "
+        "The service may be starting up or under heavy load—try again in a moment."
+    )
+
+
+def _raise_connection_error(exc: Exception) -> None:
+    raise BackendApiError(
+        _connection_error_message(),
+        connection_error=True,
+    ) from exc
+
+
+def _raise_timeout_error(exc: Exception) -> None:
+    raise BackendApiError(
+        _timeout_error_message(),
+        connection_error=True,
+    ) from exc
+
+
+def check_api_health() -> tuple[bool, str]:
+    """Lightweight liveness probe (no auth). Returns (ok, user-facing message if not ok)."""
+    try:
+        response = requests.get(
+            f"{_base_url()}/health",
+            timeout=4,
+            verify=current_app.config.get("API_VERIFY_SSL", True),
+        )
+    except RequestsConnectionError:
+        return False, _connection_error_message()
+    except RequestsTimeout:
+        return False, _timeout_error_message()
+    except RequestException as exc:
+        return False, f"API health check failed: {exc}"
+
+    if response.status_code == 200:
+        return True, ""
+
+    return False, (
+        f"The banking API at {_base_url()} returned HTTP {response.status_code}. "
+        "Check that the API service is running and healthy."
     )
 
 
@@ -58,7 +125,9 @@ def _get(
             **kwargs,
         )
     except RequestsConnectionError as exc:
-        raise BackendApiError(_connection_error_message()) from exc
+        _raise_connection_error(exc)
+    except RequestsTimeout as exc:
+        _raise_timeout_error(exc)
     except RequestException as exc:
         raise BackendApiError(f"API request failed: {exc}") from exc
 
@@ -70,7 +139,9 @@ def _patch(path: str, *, access_token: str) -> requests.Response:
     try:
         return requests.patch(f"{_base_url()}{path}", **kwargs)
     except RequestsConnectionError as exc:
-        raise BackendApiError(_connection_error_message()) from exc
+        _raise_connection_error(exc)
+    except RequestsTimeout as exc:
+        _raise_timeout_error(exc)
     except RequestException as exc:
         raise BackendApiError(f"API request failed: {exc}") from exc
 
@@ -92,7 +163,9 @@ def _post(
     try:
         return requests.post(f"{_base_url()}{path}", json=json, **kwargs)
     except RequestsConnectionError as exc:
-        raise BackendApiError(_connection_error_message()) from exc
+        _raise_connection_error(exc)
+    except RequestsTimeout as exc:
+        _raise_timeout_error(exc)
     except RequestException as exc:
         raise BackendApiError(f"API request failed: {exc}") from exc
 

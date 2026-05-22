@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import page_header %}
+{% from "macros.html" import page_header, empty_state, api_form_class %}
 {% block title %}Withdrawal · Secure Banking{% endblock %}
 {% block container_class %}container-wide{% endblock %}
 
@@ -7,7 +7,10 @@
 {{ page_header("Cash withdrawal", "Debit a customer account. Teller access required.", url_for('dashboard.index'), "Dashboard") }}
 
 <section class="card">
-  <form method="post" class="form-stack">
+  {% if accounts_unavailable %}
+  {{ empty_state(api_status_message or "Withdrawals are unavailable until the banking API is reachable.") }}
+  {% else %}
+  <form method="post" class="form-stack{{ api_form_class() }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
     <label for="account_id">Account</label>
     <select class="input" name="account_id" id="account_id" required>
@@ -27,5 +30,6 @@
 
     <button type="submit" class="btn btn-primary">Complete withdrawal</button>
   </form>
+  {% endif %}
 </section>
 {% endblock %}

@@ -1,4 +1,4 @@
-from flask import Flask, session
+from flask import Flask, request, session
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -31,11 +31,17 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_nav_context():
+        from app.api_status import get_api_status
+
         role = session.get("role")
+        force_health = request.args.get("recheck_api") == "1"
+        api_status = get_api_status(force=force_health)
         return {
             "is_admin": role == "admin",
             "is_staff": role in STAFF_ROLES,
             "is_manager": role in ("manager", "admin"),
+            "api_available": api_status["available"],
+            "api_status_message": api_status["message"],
         }
 
     @app.route("/")

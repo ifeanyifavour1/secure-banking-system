@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import api_form_class %}
 {% block title %}Sign in · Secure Banking{% endblock %}
 {% block body_class %}layout-auth{% endblock %}
 {% block container_class %}container-narrow{% endblock %}
@@ -20,7 +21,7 @@
     <h1>Sign in</h1>
     <p class="muted">Online banking access</p>
 
-    <form method="post" novalidate class="form-stack">
+    <form method="post" novalidate class="form-stack{{ api_form_class() }}">
       {{ form.hidden_tag() }}
 
       <label for="email">Email address</label>
