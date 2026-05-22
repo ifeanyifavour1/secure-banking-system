@@ -59,7 +59,14 @@
               <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-sm">Sign out</a>
             </div>
           {% else %}
-            <a href="{{ url_for('auth.login') }}" class="nav-link {{ 'is-active' if request.endpoint == 'auth.login' }}">Sign in</a>
+            <div class="nav-dropdown" data-nav-dropdown>
+              <button type="button" class="nav-link nav-dropdown-trigger {{ 'is-active' if request.endpoint and request.endpoint.startswith('auth.') and request.endpoint != 'auth.register' }}" aria-expanded="false">Sign in</button>
+              <div class="nav-dropdown-menu">
+                <a href="{{ url_for('auth.login') }}">Online banking</a>
+                <a href="{{ url_for('auth.staff_login') }}">Branch staff</a>
+                <a href="{{ url_for('auth.admin_login') }}">Administration</a>
+              </div>
+            </div>
             <a href="{{ url_for('auth.register') }}" class="btn btn-accent btn-sm">Register</a>
           {% endif %}
         </nav>

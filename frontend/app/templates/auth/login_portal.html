@@ -1,25 +1,26 @@
 {% extends "base.html" %}
 {% from "macros.html" import api_form_class %}
-{% block title %}Sign in · Secure Banking{% endblock %}
+{% block title %}{{ portal.page_title }} · Secure Banking{% endblock %}
 {% block body_class %}layout-auth{% endblock %}
 {% block container_class %}container-narrow{% endblock %}
 
 {% block content %}
 <div class="auth-shell">
-  <aside class="auth-panel">
+  <aside class="auth-panel auth-panel--{{ portal.panel_theme }}">
     <div class="auth-panel-accent"></div>
-    <h2>Your accounts, securely managed</h2>
-    <p>Sign in to view balances, transfer funds, and download statements.</p>
+    <p class="auth-portal-label">{{ portal.subtitle }}</p>
+    <h2>{{ portal.panel_heading }}</h2>
+    <p>{{ portal.panel_intro }}</p>
     <ul class="auth-panel-list">
-      <li>Encrypted sign-in and session protection</li>
-      <li>Real-time balances and transaction history</li>
-      <li>Branch services for tellers and managers</li>
+      {% for item in portal.panel_bullets %}
+      <li>{{ item }}</li>
+      {% endfor %}
     </ul>
   </aside>
 
   <section class="card auth-card">
-    <h1>Sign in</h1>
-    <p class="muted">Online banking access</p>
+    <h1>{{ portal.heading }}</h1>
+    <p class="muted">{{ portal.subtitle }}</p>
 
     <form method="post" novalidate class="form-stack{{ api_form_class() }}">
       {{ form.hidden_tag() }}
@@ -42,10 +43,20 @@
         <p class="hint">{{ form.totp_code.description }}</p>
       {% endif %}
 
-      {{ form.submit(class_="btn btn-primary", value="Sign in") }}
+      {{ form.submit(class_="btn btn-primary", value=portal.submit_label) }}
     </form>
 
-    <p class="card-footer">New customer? <a href="{{ url_for('auth.register') }}">Register for online banking</a></p>
+    <div class="auth-portal-links card-footer">
+      {% if show_register_link %}
+      <p>New customer? <a href="{{ url_for('auth.register') }}">Register for online banking</a></p>
+      {% endif %}
+      <p class="auth-portal-switch">Sign in elsewhere:
+        {% for p in other_portals %}
+        <a href="{{ url_for(p.endpoint) }}">{{ p.heading }}</a>{% if not loop.last %} · {% endif %}
+        {% endfor %}
+        · <a href="{{ url_for('auth.portal_hub') }}">All portals</a>
+      </p>
+    </div>
   </section>
 </div>
 {% endblock %}

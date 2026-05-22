@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Secure Banking{% endblock %}
+{% block body_class %}layout-auth{% endblock %}
+{% block container_class %}container-narrow{% endblock %}
+
+{% block content %}
+<header class="page-header" style="text-align:center;max-width:32rem;margin:1rem auto 2rem;">
+  <h1>Choose how to sign in</h1>
+  <p class="page-subtitle">Personal banking, branch staff, and system administration use separate secure portals.</p>
+</header>
+
+<div class="portal-hub-grid">
+  <a class="portal-hub-card portal-hub-card--customer" href="{{ url_for('auth.login') }}">
+    <span class="portal-hub-label">Customers</span>
+    <h2>Online banking</h2>
+    <p>Balances, transfers, and statements for personal accounts.</p>
+    <span class="portal-hub-cta">Sign in →</span>
+  </a>
+
+  <a class="portal-hub-card portal-hub-card--staff" href="{{ url_for('auth.staff_login') }}">
+    <span class="portal-hub-label">Branch staff</span>
+    <h2>Branch portal</h2>
+    <p>For tellers and managers — deposits, withdrawals, and account servicing.</p>
+    <span class="portal-hub-cta">Staff sign in →</span>
+  </a>
+
+  <a class="portal-hub-card portal-hub-card--admin" href="{{ url_for('auth.admin_login') }}">
+    <span class="portal-hub-label">Administration</span>
+    <h2>System admin</h2>
+    <p>Role assignment, audit logs, and platform administration.</p>
+    <span class="portal-hub-cta">Admin sign in →</span>
+  </a>
+</div>
+
+<p class="portal-hub-footer muted" style="text-align:center;margin-top:2rem;">
+  New customer? <a href="{{ url_for('auth.register') }}">Register for online banking</a>
+</p>
+{% endblock %}

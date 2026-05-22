@@ -39,6 +39,17 @@
 
    UI: http://127.0.0.1:5000
 
-4. Open **Register**, create a user, then **Sign in**. The dashboard shows JWT claims and lets you test **Refresh access token**.
+4. Open **Register** (customers), or pick a sign-in portal:
+   - **Online banking** — `/auth/login` (customers)
+   - **Branch staff** — `/auth/staff/login` (teller, manager)
+   - **Administration** — `/auth/admin/login` (admin only)
+
+   The home page (`/`) lists all portals. Each portal rejects accounts with the wrong role (e.g. a teller cannot sign in on the customer form).
 
 Set `API_BASE_URL` and `FLASK_SECRET_KEY` in the project root `.env` if needed.
+
+## Security edge (production)
+
+On Render, the frontend Docker image runs **nginx** in front of **Gunicorn** (loopback only). Flask adds a second layer: path blocking, host validation, **Flask-Limiter**, Talisman headers, and CSRF. See [SECURITY.md](SECURITY.md).
+
+Local `python run.py` uses the Flask layers only (no nginx).
